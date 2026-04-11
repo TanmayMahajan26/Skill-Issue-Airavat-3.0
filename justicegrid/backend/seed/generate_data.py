@@ -178,18 +178,47 @@ def generate():
         today = date.today()
         all_states = list(STATES.keys())
 
+        # Realistic demographic data pools
+        OCCUPATIONS = ["Daily Wage Labourer", "Farmer", "Auto Rickshaw Driver", "Construction Worker",
+                       "Street Vendor", "Factory Worker", "Truck Driver", "Electrician", "Plumber",
+                       "Security Guard", "Tailor", "Carpenter", "Mechanic", "Domestic Worker",
+                       "Shopkeeper", "Fisherman", "Unemployed", "Student"]
+        EDUCATION = ["Illiterate", "Illiterate", "Illiterate", "Primary (Class 5)",
+                     "Primary (Class 5)", "Middle (Class 8)", "Middle (Class 8)",
+                     "Secondary (Class 10)", "Higher Secondary (Class 12)", "Graduate", "Post Graduate"]
+        POLICE_STATIONS = {
+            "Maharashtra": ["Shivajinagar PS", "Koregaon Park PS", "Hadapsar PS", "Bund Garden PS", "Deccan PS",
+                           "Swargate PS", "Kothrud PS", "Dadar PS", "Andheri PS", "Bandra PS", "Nagpada PS"],
+            "Uttar Pradesh": ["Hazratganj PS", "Chowk PS", "Husainganj PS", "Kaisarbagh PS", "Aliganj PS",
+                             "Cantt PS", "Sadar Bazar PS", "Lanka PS", "Sigra PS", "Dashashwamedh PS"],
+            "Bihar": ["Kotwali PS", "Gardanibagh PS", "Kankarbagh PS", "Patna City PS", "Phulwarisharif PS",
+                     "Danapur PS", "Bihta PS", "Rajgir PS", "Bodh Gaya PS", "Gaya Town PS"],
+            "Tamil Nadu": ["T. Nagar PS", "Anna Nagar PS", "Adyar PS", "Mylapore PS", "Egmore PS",
+                          "Saidapet PS", "Nungambakkam PS", "Guindy PS", "Perungudi PS", "Sholinganallur PS"],
+            "West Bengal": ["Lal Bazar PS", "Bowbazar PS", "Park Street PS", "Bhawanipur PS", "Gariahat PS",
+                           "New Market PS", "Jorasanko PS", "Belur PS", "Howrah PS", "Liluah PS"],
+        }
+        LAWYER_NAMES = [
+            "Adv. Ramesh Gupta", "Adv. Priya Verma", "Adv. Sunil Jha", "Adv. Neeta Deshmukh",
+            "Adv. Kiran Rao", "Adv. Farhan Sheikh", "Adv. Anjali Nair", "Adv. Deepak Pandey",
+            "Adv. Meera Kumari", "Adv. Rajendra Yadav", "Adv. Smita Patil", "Adv. Vivek Mishra",
+            "Legal Aid Panel", "Legal Aid Panel", "Legal Aid Panel",  # Legal aid more common
+        ]
+
+        paralegal_case_indices = set(random.sample(range(5000), 200))
+        lawyer_case_indices = set(random.sample(range(5000), 55))
+
         for i in range(5000):
             state = random.choice(all_states)
             dist_name = random.choice(STATES[state]["districts"])
 
             # Pick 1-3 charges (weighted: most cases have 1-2)
             num_charges = random.choices([1, 2, 3], weights=[0.55, 0.35, 0.10])[0]
-            # Ensure we pick substantive charges (not just S.34)
             substantive = [c for c in IPC_CHARGES if c["section"] != "34"]
             case_charges = random.sample(substantive, min(num_charges, len(substantive)))
 
-            # Detention: 30 to 1200 days ago
-            days_detained = random.randint(30, 1200)
+            # Detention: triangular distribution peaking around 150 days
+            days_detained = int(random.triangular(15, 800, 150))
             arrest = today - timedelta(days=days_detained)
 
             is_first = random.random() < 0.65
@@ -206,9 +235,42 @@ def generate():
             state_abbrev = state[:2].upper()
             year = 2024 + random.choice([0, 1])
 
+            # Realistic demographics — NCRB data says 95%+ male, age 18-45 peak
+            gender = random.choices(["Male", "Female"], weights=[0.95, 0.05])[0]
+            age = int(random.triangular(18, 65, 28))
+            occupation = random.choice(OCCUPATIONS)
+            education = random.choice(EDUCATION)
+            ps_list = POLICE_STATIONS.get(state, POLICE_STATIONS["Maharashtra"])
+            police_station = random.choice(ps_list)
+            fir_number = f"{random.randint(1, 999):03d}/{year}"
+            father_name = fake.name_male().split()[-1]  # Take surname
+            father_first = fake.first_name_male()
+            accused_name = fake.name_male() if gender == "Male" else fake.name_female()
+            father_full = f"{father_first} {father_name}"
+
+            # Lawyer — only 45% have private lawyer, rest legal aid or none
+            lawyer = None
+            if random.random() < 0.45:
+                lawyer = random.choice(LAWYER_NAMES)
+
+            # Address — realistic village/mohalla format
+            if random.random() < 0.6:
+                address = f"Village {fake.city()}, Tehsil {fake.city()}, District {dist_name}, {state}"
+            else:
+                address = f"Mohalla {fake.street_name()}, {dist_name}, {state} - {random.randint(100000, 999999)}"
+
             case = Case(
                 case_number=f"{state_abbrev}-{year}-CR-{10000 + i}",
-                accused_name=fake.name(),
+                accused_name=accused_name,
+                father_name=father_full,
+                age=age,
+                gender=gender,
+                address=address,
+                occupation=occupation,
+                education=education,
+                lawyer_name=lawyer,
+                fir_number=fir_number,
+                police_station=police_station,
                 prison_id=prison_map[(state, dist_name, random.choice([0, 1]))],
                 district_id=district_map[(state, dist_name)],
                 court_id=court_map[(state, dist_name, random.choice(COURT_TYPES))],
@@ -223,8 +285,8 @@ def generate():
                 bail_granted_date=bail_date,
                 surety_amount=surety,
                 surety_executed=surety_exec,
-                assigned_paralegal_id=paralegal_id if random.random() < 0.65 else None,
-                assigned_lawyer_id=lawyer_id if random.random() < 0.45 else None,
+                assigned_paralegal_id=paralegal_id if i in paralegal_case_indices else None,
+                assigned_lawyer_id=lawyer_id if i in lawyer_case_indices else None,
                 source_portal=f"ecourts_{state_abbrev.lower()}",
                 status="ACTIVE",
             )

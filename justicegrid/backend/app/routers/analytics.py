@@ -153,6 +153,43 @@ def district_comparison(db: Session = Depends(get_db)):
     return {"data": result}
 
 
+@router.get("/status-distribution")
+def status_distribution(db: Session = Depends(get_db)):
+    """Eligibility status distribution across all active cases."""
+    cases = db.query(Case).filter(Case.status == "ACTIVE").all()
+    today = date.today()
+
+    counts = {"ELIGIBLE": 0, "NOT_ELIGIBLE": 0, "EXCLUDED": 0, "REVIEW_NEEDED": 0, "PENDING": 0}
+    total_detention = 0
+    surety_gap = 0
+
+    for c in cases:
+        status = c.eligibility_status or "PENDING"
+        counts[status] = counts.get(status, 0) + 1
+        total_detention += (today - c.arrest_date).days
+        if c.bail_granted and not c.surety_executed and c.surety_amount and c.surety_amount > 0:
+            surety_gap += 1
+
+    total = len(cases)
+    avg_detention = round(total_detention / max(total, 1))
+
+    colors = {"ELIGIBLE": "#10B981", "NOT_ELIGIBLE": "#F59E0B", "EXCLUDED": "#EF4444", "REVIEW_NEEDED": "#8B5CF6", "PENDING": "#6B7280"}
+    labels = {"ELIGIBLE": "Eligible", "NOT_ELIGIBLE": "Not Eligible", "EXCLUDED": "Excluded", "REVIEW_NEEDED": "Under Review", "PENDING": "Pending"}
+
+    distribution = [
+        {"name": labels.get(k, k), "value": v, "color": colors.get(k, "#6B7280")}
+        for k, v in counts.items() if v > 0
+    ]
+
+    return {
+        "distribution": distribution,
+        "total_cases": total,
+        "total_eligible": counts.get("ELIGIBLE", 0),
+        "avg_detention_days": avg_detention,
+        "surety_gap_cases": surety_gap,
+    }
+
+
 @router.get("/accuracy-tracking")
 def accuracy_tracking(db: Session = Depends(get_db)):
     """System accuracy over time — tracks how predictions match outcomes."""

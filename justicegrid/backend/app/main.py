@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import engine, Base
-from .routers import cases, eligibility, hearings, surety, analytics, utrc, audit, comms, nlp, fl
+from .routers import cases, eligibility, hearings, surety, analytics, utrc, audit, comms, nlp, fl, auth, alerts, drafts, bail_conditions
 
 # Create all tables on startup
 Base.metadata.create_all(bind=engine)
@@ -45,6 +45,10 @@ app.include_router(audit.router,        prefix="/api/v1/admin",        tags=["Ad
 app.include_router(comms.router,        prefix="/api/v1/comms",        tags=["Communication"])
 app.include_router(nlp.router,          prefix="/api/v1/nlp",          tags=["NLP"])
 app.include_router(fl.router,           prefix="/api/v1/fl",           tags=["Federated Learning"])
+app.include_router(auth.router,         prefix="/api/v1/auth",         tags=["Auth"])
+app.include_router(alerts.router,       prefix="/api/v1/alerts",       tags=["Alerts"])
+app.include_router(drafts.router,       prefix="/api/v1/drafts",       tags=["Drafts"])
+app.include_router(bail_conditions.router, prefix="/api/v1/bail",      tags=["Bail Conditions"])
 
 
 @app.get("/", tags=["Health"])

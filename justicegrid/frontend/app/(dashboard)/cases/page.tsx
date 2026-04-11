@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { fetchAPI } from '@/lib/api-client';
-import { mockCaseQueue } from '@/lib/mock-data';
+import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
 import { Search, Filter, Clock } from 'lucide-react';
 import { CountdownClock } from '@/components/countdown-clock';
@@ -13,6 +13,7 @@ export default function AllCasesPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [stateFilter, setStateFilter] = useState('');
+  const { user } = useAuth();
 
   useEffect(() => {
     async function load() {
@@ -21,18 +22,22 @@ export default function AllCasesPage() {
       if (search) params.set('search', search);
       if (statusFilter) params.set('eligibility', statusFilter);
       if (stateFilter) params.set('state', stateFilter);
+      
+      if (user?.role === 'paralegal') {
+        params.set('paralegal_id', user.id);
+      } else if (user?.role === 'lawyer') {
+        params.set('lawyer_id', user.id);
+      }
 
       const data = await fetchAPI(`/api/v1/cases?${params.toString()}`);
       if (data?.cases) {
         setCases(data.cases);
-      } else {
-        setCases(mockCaseQueue.cases);
       }
       setLoading(false);
     }
     const timeout = setTimeout(load, 300);
     return () => clearTimeout(timeout);
-  }, [search, statusFilter, stateFilter]);
+  }, [search, statusFilter, stateFilter, user]);
 
   return (
     <div className="space-y-6">

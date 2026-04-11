@@ -16,17 +16,26 @@ router = APIRouter()
 @router.get("/upcoming")
 def upcoming_hearings(
     days: int = Query(14, description="Number of days ahead to look"),
+    paralegal_id: Optional[str] = Query(None, description="Filter by assigned paralegal"),
+    lawyer_id: Optional[str] = Query(None, description="Filter by assigned lawyer"),
     db: Session = Depends(get_db)
 ):
     """List upcoming hearings with adjournment predictions."""
     today = date.today()
     end_date = today + timedelta(days=days)
     
-    hearings = db.query(Hearing).filter(
+    query = db.query(Hearing).join(Case, Case.id == Hearing.case_id).filter(
         Hearing.hearing_date >= today,
         Hearing.hearing_date <= end_date,
         Hearing.outcome == None,
-    ).order_by(asc(Hearing.hearing_date)).all()
+    )
+    
+    if paralegal_id:
+        query = query.filter(Case.assigned_paralegal_id == paralegal_id)
+    if lawyer_id:
+        query = query.filter(Case.assigned_lawyer_id == lawyer_id)
+        
+    hearings = query.order_by(asc(Hearing.hearing_date)).all()
     
     result = []
     for h in hearings:

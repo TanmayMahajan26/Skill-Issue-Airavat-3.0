@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { fetchAPI } from '@/lib/api-client';
-import { mockAuditLog } from '@/lib/mock-data';
 import { Shield, Search, Download } from 'lucide-react';
 
 export default function AuditPage() {
@@ -15,8 +14,6 @@ export default function AuditPage() {
       const data = await fetchAPI('/api/v1/admin/audit-log?limit=50');
       if (data?.entries) {
         setEntries(data.entries);
-      } else {
-        setEntries(mockAuditLog);
       }
       setLoading(false);
     }

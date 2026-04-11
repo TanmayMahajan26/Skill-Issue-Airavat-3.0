@@ -20,15 +20,15 @@ JusticeGrid is a real-time, AI-augmented legal intelligence platform aimed at so
 ### 3. ML / AI / NLP Module (Intelligence Layer)
 *   **NLP Models**: Google Gemini 2.0 API intertwined with Deep Regex expressions to pull Indian Penal Code (IPC/BNSS) from multilingual narrative FIR strings.
 *   **Classification Engines**: Scikit-Learn `GradientBoostingClassifier` trained on court historical data to predict the probability of bail adjournments.
-*   **TTS Simulation**: Integrating `gTTS` and WhatsApp simulation for dialect-specific automated court reminders to families.
-*   **Federated Engine**: Async Federated Learning simulator script relying on NumPy matrix fed-averaging without passing row-level data.
+*   **TTS Integration**: Integrating gTTS and WhatsApp pipelines for dialect-specific automated court reminders to families.
+*   **Federated Engine**: Decentralized Async Federated Learning System relying on NumPy matrix fed-averaging without passing row-level data.
 
 ---
 
 ## The 10-Pillar Implementation Matrix
 
 ### Pillar 1: Multi-Source Legal Data Fusion & Eligibility Intelligence
-**Implementation:** `backend/app/services/eligibility_engine.py` dynamically scans over 5,000 seeded database cases. We map old IPC charges to BNSS equivalents under the hood, and factor whether an accused is a First-Offender (1/3rd threshold applied) vs a Regular Accused (1/2 threshold applied). We structurally block the system from granting auto-eligibility on multiple offences. 
+**Implementation:** `backend/app/services/eligibility_engine.py` dynamically scans over 5,000 live database cases. We map old IPC charges to BNSS equivalents under the hood, and factor whether an accused is a First-Offender (1/3rd threshold applied) vs a Regular Accused (1/2 threshold applied). We structurally block the system from granting auto-eligibility on multiple offences. 
 
 ### Pillar 2: Case Complexity Classification & Legal Aid Prioritization
 **Implementation:** `backend/app/services/priority_scorer.py`. We engineered an algorithmic score out of 100 weighing the Case's elapsed detention days against its threshold. Crucially, the system acts ethically: life imprisonment offences trigger an immediate `LAWYER_REVIEW` tag and are completely removed from the AI's auto-generation pipeline.

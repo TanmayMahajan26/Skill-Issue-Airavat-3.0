@@ -28,6 +28,9 @@ class CaseQueueItem(BaseModel):
     case_id: str
     case_number: str
     accused_name: str
+    father_name: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[str] = None
     priority_score: float = 0.0
     one_line_reason: str = "Pending assessment"
     charges: List[Dict[str, Any]] = []
@@ -43,6 +46,8 @@ class CaseQueueItem(BaseModel):
     detention_days: int = 0
     next_hearing_date: Optional[str] = None
     arrest_date: str = ""
+    fir_number: Optional[str] = None
+    police_station: Optional[str] = None
 
 
 class CaseQueueResponse(BaseModel):
@@ -80,6 +85,15 @@ class CaseDetailResponse(BaseModel):
     id: str
     case_number: str
     accused_name: str
+    father_name: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    address: Optional[str] = None
+    occupation: Optional[str] = None
+    education: Optional[str] = None
+    lawyer_name: Optional[str] = None
+    fir_number: Optional[str] = None
+    police_station: Optional[str] = None
     charges: List[Dict[str, Any]] = []
     arrest_date: str
     detention_days: int

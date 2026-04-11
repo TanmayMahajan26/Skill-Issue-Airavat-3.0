@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { fetchAPI } from '@/lib/api-client';
-import { mockHearings } from '@/lib/mock-data';
+import { useAuth } from '@/lib/auth-context';
 import { Calendar, AlertTriangle, CheckCircle } from 'lucide-react';
 
 function getAdjournmentColor(prob: number) {
@@ -14,19 +14,25 @@ export default function HearingsPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [hearings, setHearings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     async function load() {
-      const data = await fetchAPI('/api/v1/hearings/upcoming?limit=20');
+      const params = new URLSearchParams({ days: '30' });
+      if (user?.role === 'paralegal') {
+        params.set('paralegal_id', user.id);
+      } else if (user?.role === 'lawyer') {
+        params.set('lawyer_id', user.id);
+      }
+
+      const data = await fetchAPI(`/api/v1/hearings/upcoming?${params.toString()}`);
       if (data?.hearings) {
         setHearings(data.hearings);
-      } else {
-        setHearings(mockHearings);
       }
       setLoading(false);
     }
-    load();
-  }, []);
+    if (user) load();
+  }, [user]);
 
   if (loading) {
     return <div className="space-y-3">{[...Array(5)].map((_, i) => <div key={i} className="glass-card p-5"><div className="skeleton h-4 w-1/3 mb-2" /><div className="skeleton h-3 w-2/3" /></div>)}</div>;
@@ -51,7 +57,7 @@ export default function HearingsPage() {
       {/* Hearing Cards */}
       <div className="space-y-3">
         {hearings.map((h, i) => {
-          const prob = h.adjournment_prob || h.adjournment_predicted_prob || 0;
+          const prob = (h.adjournment_probability || h.adjournment_prob || 0) / 100;
           const adj = getAdjournmentColor(prob);
           return (
             <div key={h.id || i} className="glass-card-hover p-5 animate-slide-up" style={{ animationDelay: `${(i + 3) * 60}ms` }}>

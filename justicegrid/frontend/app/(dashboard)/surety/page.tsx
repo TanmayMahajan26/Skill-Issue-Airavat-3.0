@@ -1,26 +1,32 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { fetchAPI } from '@/lib/api-client';
-import { mockSuretyGaps } from '@/lib/mock-data';
+import { useAuth } from '@/lib/auth-context';
 import { Scale, AlertTriangle, FileText, TrendingDown } from 'lucide-react';
 
 export default function SuretyPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [gaps, setGaps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
     async function load() {
-      const data = await fetchAPI('/api/v1/surety/gap-report');
+      const params = new URLSearchParams();
+      if (user?.role === 'paralegal') {
+        params.set('paralegal_id', user.id);
+      } else if (user?.role === 'lawyer') {
+        params.set('lawyer_id', user.id);
+      }
+      
+      const data = await fetchAPI(`/api/v1/surety/gap-report?${params.toString()}`);
       if (data?.cases) {
         setGaps(data.cases);
-      } else {
-        setGaps(mockSuretyGaps);
       }
       setLoading(false);
     }
-    load();
-  }, []);
+    if (user) load();
+  }, [user]);
 
   if (loading) {
     return <div className="space-y-4"><div className="grid grid-cols-4 gap-4">{[...Array(4)].map((_, i) => <div key={i} className="glass-card p-4"><div className="skeleton h-7 w-16" /></div>)}</div><div className="glass-card p-5"><div className="skeleton h-60" /></div></div>;

@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react';
 import { CountdownClock } from '@/components/countdown-clock';
 import { ReasoningGraph } from '@/components/reasoning-graph';
 import { fetchAPI } from '@/lib/api-client';
-import { mockCaseQueue, mockReasoningGraph } from '@/lib/mock-data';
 import Link from 'next/link';
 import {
   ArrowLeft, Scale, Calendar, MapPin, Building, Clock,
   FileText, User, AlertTriangle, CheckCircle, XCircle, TrendingUp,
+  Zap, Download, Shield, Clipboard,
 } from 'lucide-react';
 
 export default function CaseDetailPage() {
@@ -18,17 +18,33 @@ export default function CaseDetailPage() {
   const [caseData, setCaseData] = useState<any>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [reasoningGraph, setReasoningGraph] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [caseAlerts, setCaseAlerts] = useState<any[]>([]);
+  const [petitionText, setPetitionText] = useState<string | null>(null);
+  const [petitionType, setPetitionType] = useState<string>('');
+  const [generatingPetition, setGeneratingPetition] = useState(false);
+  const [bailOrderText, setBailOrderText] = useState('');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [bailChecklist, setBailChecklist] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      // Try real API for case detail
       const detail = await fetchAPI(`/api/v1/cases/${caseId}`);
       if (detail) {
         setCaseData({
           case_id: detail.id,
           case_number: detail.case_number,
           accused_name: detail.accused_name,
+          father_name: detail.father_name,
+          age: detail.age,
+          gender: detail.gender,
+          address: detail.address,
+          occupation: detail.occupation,
+          education: detail.education,
+          lawyer_name: detail.lawyer_name,
+          fir_number: detail.fir_number,
+          police_station: detail.police_station,
           charges: detail.charges || [],
           arrest_date: detail.arrest_date,
           detention_days: detail.detention_days,
@@ -36,6 +52,9 @@ export default function CaseDetailPage() {
           confidence: detail.eligibility_confidence || 0,
           priority_score: detail.priority_score,
           bail_success_probability: detail.bail_success_probability,
+          bail_granted: detail.bail_granted,
+          surety_amount: detail.surety_amount,
+          surety_executed: detail.surety_executed,
           one_line_reason: detail.eligibility_reasoning || 'Pending assessment',
           next_action: detail.bail_granted ? 'Check surety execution' : 'File bail application',
           next_hearing_date: detail.hearings?.find((h: { outcome: string | null }) => !h.outcome)?.date || null,
@@ -46,24 +65,74 @@ export default function CaseDetailPage() {
           prison: detail.prison?.name || '',
           hearings: detail.hearings || [],
           court_info: detail.court,
+          district_info: detail.district,
+          is_first_offender: detail.is_first_offender,
         });
       } else {
-        // Fallback to mock data
-        const found = mockCaseQueue.cases.find((c) => c.case_id === caseId) || mockCaseQueue.cases[0];
-        setCaseData(found);
+        setCaseData({ error: true, message: 'Case not found. Make sure the backend is running.' });
       }
 
-      // Try real API for reasoning graph
       const graph = await fetchAPI(`/api/v1/eligibility/cases/${caseId}/reasoning-graph`);
       if (graph?.nodes) {
         setReasoningGraph(graph);
-      } else {
-        setReasoningGraph(mockReasoningGraph);
       }
+
+      // Fetch case-specific alerts
+      const alertData = await fetchAPI(`/api/v1/alerts/case/${caseId}`);
+      if (alertData?.alerts) {
+        setCaseAlerts(alertData.alerts);
+      }
+
       setLoading(false);
     }
     load();
   }, [caseId]);
+
+  // ── Petition Generation ───────────────────────────────────────────────
+  async function generatePetition(type: 's479' | 'pr-bond' | 's440') {
+    setGeneratingPetition(true);
+    setPetitionType(type);
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/drafts/${type}/${caseId}`);
+      if (res.ok) {
+        const text = await res.text();
+        setPetitionText(text);
+      } else {
+        const err = await res.json();
+        setPetitionText(`Error: ${err.detail || 'Failed to generate petition'}`);
+      }
+    } catch {
+      setPetitionText('Error: Could not connect to server');
+    }
+    setGeneratingPetition(false);
+  }
+
+  function downloadPetition() {
+    if (!petitionText) return;
+    const blob = new Blob([petitionText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${petitionType}_petition_${caseData?.case_number || 'case'}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Bail Condition Parser ─────────────────────────────────────────────
+  async function parseBailConditions() {
+    if (!bailOrderText.trim()) return;
+    try {
+      const res = await fetch('http://localhost:8000/api/v1/bail/parse-conditions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_text: bailOrderText }),
+      });
+      const data = await res.json();
+      if (data?.items) setBailChecklist(data.items);
+    } catch {
+      console.error('Failed to parse bail conditions');
+    }
+  }
 
   const outcomeColors: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
     ADJOURNED: { bg: 'bg-jg-amber/15', text: 'text-jg-amber', icon: <Clock className="w-3 h-3" /> },
@@ -148,7 +217,197 @@ export default function CaseDetailPage() {
             </div>
           </div>
 
-          {/* Reasoning Graph */}
+          {/* Accused Profile — Complete Prisoner Information */}
+          <div className="glass-card p-5 animate-slide-up" style={{ animationDelay: '120ms' }}>
+            <h3 className="text-sm font-semibold text-jg-text mb-4 flex items-center gap-2">
+              <User className="w-4 h-4 text-jg-purple" /> Accused Profile
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {[
+                { label: 'Full Name', value: caseData.accused_name },
+                { label: "Father's Name", value: caseData.father_name || 'N/A' },
+                { label: 'Age', value: caseData.age ? `${caseData.age} years` : 'N/A' },
+                { label: 'Gender', value: caseData.gender || 'N/A' },
+                { label: 'Occupation', value: caseData.occupation || 'N/A' },
+                { label: 'Education', value: caseData.education || 'N/A' },
+                { label: 'FIR Number', value: caseData.fir_number || 'N/A' },
+                { label: 'Police Station', value: caseData.police_station || 'N/A' },
+                { label: 'First Offender', value: caseData.is_first_offender ? 'Yes' : 'No' },
+              ].map((item) => (
+                <div key={item.label} className="bg-jg-surface-hover/50 rounded-lg p-3">
+                  <p className="text-[11px] text-jg-text-secondary mb-1">{item.label}</p>
+                  <p className="text-sm font-medium text-jg-text">{item.value}</p>
+                </div>
+              ))}
+            </div>
+            {caseData.address && (
+              <div className="mt-3 bg-jg-surface-hover/50 rounded-lg p-3">
+                <p className="text-[11px] text-jg-text-secondary mb-1">Address</p>
+                <p className="text-sm text-jg-text">{caseData.address}</p>
+              </div>
+            )}
+            {/* Legal Representation */}
+            <div className="mt-3 flex items-center gap-3">
+              <div className={`px-3 py-2 rounded-lg text-xs font-medium ${caseData.lawyer_name ? 'bg-jg-green/15 text-jg-green border border-jg-green/30' : 'bg-jg-red/15 text-jg-red border border-jg-red/30'}`}>
+                {caseData.lawyer_name ? `🧑‍⚖️ ${caseData.lawyer_name}` : '⚠️ No Legal Representation'}
+              </div>
+              {caseData.bail_granted && (
+                <div className={`px-3 py-2 rounded-lg text-xs font-medium ${caseData.surety_executed ? 'bg-jg-green/15 text-jg-green border border-jg-green/30' : 'bg-jg-amber/15 text-jg-amber border border-jg-amber/30'}`}>
+                  {caseData.surety_executed
+                    ? `✅ Bail Executed • ₹${caseData.surety_amount?.toLocaleString()}`
+                    : `⏳ Bail Granted • Surety ₹${caseData.surety_amount?.toLocaleString()} Unexecuted`}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ═══ LEGAL INTELLIGENCE — Alerts & Actions ═══ */}
+          {caseAlerts.length > 0 && (
+            <div className="glass-card p-5 animate-slide-up border border-jg-red/20" style={{ animationDelay: '140ms' }}>
+              <h3 className="text-sm font-semibold text-jg-text mb-3 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-jg-red" /> Active Legal Alerts
+              </h3>
+              <div className="space-y-2">
+                {caseAlerts.map((alert, i) => (
+                  <div key={i} className={`p-3 rounded-lg border ${
+                    alert.severity === 'CRITICAL' ? 'bg-jg-red/10 border-jg-red/30'
+                    : alert.severity === 'HIGH' ? 'bg-jg-amber/10 border-jg-amber/30'
+                    : 'bg-jg-blue/10 border-jg-blue/30'
+                  }`}>
+                    <div className="flex items-start gap-2">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${
+                        alert.severity === 'CRITICAL' ? 'bg-jg-red text-white' : 'bg-jg-amber/20 text-jg-amber'
+                      }`}>{alert.type.replace(/_/g, ' ')}</span>
+                      <p className="text-xs text-jg-text leading-relaxed">{alert.message}</p>
+                    </div>
+                    <p className="text-[11px] text-jg-blue font-medium mt-2 ml-0">→ {alert.action}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ ONE-CLICK PETITION GENERATION ═══ */}
+          <div className="glass-card p-5 animate-slide-up" style={{ animationDelay: '150ms' }}>
+            <h3 className="text-sm font-semibold text-jg-text mb-3 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-jg-amber" /> One-Click Legal Drafting
+            </h3>
+            <p className="text-[11px] text-jg-text-secondary mb-4">
+              Generate ready-to-file petitions instantly. Each petition auto-fills case facts, detention math, and legal citations.
+            </p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {/* S.479 Petition — only if ELIGIBLE and no bail */}
+              {caseData.eligibility_status === 'ELIGIBLE' && !caseData.bail_granted && (
+                <button
+                  onClick={() => generatePetition('s479')}
+                  disabled={generatingPetition}
+                  className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-jg-green/20 to-jg-green/10 border border-jg-green/40 text-jg-green text-xs font-semibold hover:from-jg-green/30 hover:to-jg-green/20 transition-all disabled:opacity-50"
+                >
+                  {generatingPetition && petitionType === 's479' ? '⏳ Generating...' : '⚡ S.479 Bail Petition'}
+                </button>
+              )}
+              {/* PR Bond — only if bail granted but surety unexecuted */}
+              {caseData.bail_granted && !caseData.surety_executed && (
+                <button
+                  onClick={() => generatePetition('pr-bond')}
+                  disabled={generatingPetition}
+                  className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-jg-purple/20 to-jg-purple/10 border border-jg-purple/40 text-jg-purple text-xs font-semibold hover:from-jg-purple/30 hover:to-jg-purple/20 transition-all disabled:opacity-50"
+                >
+                  {generatingPetition && petitionType === 'pr-bond' ? '⏳ Generating...' : '📋 PR Bond Petition'}
+                </button>
+              )}
+              {/* S.440 Surety Reduction — only if bail granted with surety */}
+              {caseData.bail_granted && caseData.surety_amount > 0 && (
+                <button
+                  onClick={() => generatePetition('s440')}
+                  disabled={generatingPetition}
+                  className="px-4 py-2.5 rounded-lg bg-gradient-to-r from-jg-amber/20 to-jg-amber/10 border border-jg-amber/40 text-jg-amber text-xs font-semibold hover:from-jg-amber/30 hover:to-jg-amber/20 transition-all disabled:opacity-50"
+                >
+                  {generatingPetition && petitionType === 's440' ? '⏳ Generating...' : '💰 S.440 Surety Reduction'}
+                </button>
+              )}
+              {!caseData.bail_granted && caseData.eligibility_status !== 'ELIGIBLE' && (
+                <p className="text-[11px] text-jg-text-secondary italic">
+                  No petitions available — case is {caseData.eligibility_status.toLowerCase()} for bail eligibility.
+                </p>
+              )}
+            </div>
+
+            {/* Petition Preview */}
+            {petitionText && (
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-jg-green">Generated Petition Preview</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={downloadPetition}
+                      className="px-3 py-1.5 rounded-lg bg-jg-blue/20 text-jg-blue text-[11px] font-medium hover:bg-jg-blue/30 transition-all flex items-center gap-1"
+                    >
+                      <Download className="w-3 h-3" /> Download .txt
+                    </button>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(petitionText); }}
+                      className="px-3 py-1.5 rounded-lg bg-jg-surface-hover text-jg-text text-[11px] font-medium hover:bg-jg-border transition-all flex items-center gap-1"
+                    >
+                      <Clipboard className="w-3 h-3" /> Copy
+                    </button>
+                  </div>
+                </div>
+                <pre className="bg-jg-bg border border-jg-border rounded-lg p-4 text-[11px] text-jg-text font-mono leading-relaxed max-h-96 overflow-y-auto whitespace-pre-wrap">
+                  {petitionText}
+                </pre>
+              </div>
+            )}
+          </div>
+
+          {/* ═══ BAIL CONDITION CHECKLIST GENERATOR ═══ */}
+          {caseData.bail_granted && (
+            <div className="glass-card p-5 animate-slide-up" style={{ animationDelay: '160ms' }}>
+              <h3 className="text-sm font-semibold text-jg-text mb-3 flex items-center gap-2">
+                <Clipboard className="w-4 h-4 text-jg-green" /> Bail Condition Checklist Generator
+              </h3>
+              <p className="text-[11px] text-jg-text-secondary mb-3">
+                Paste the judge&apos;s bail order text below. The NLP engine will extract conditions into a visual, bilingual checklist that families can understand.
+              </p>
+              <textarea
+                value={bailOrderText}
+                onChange={(e) => setBailOrderText(e.target.value)}
+                placeholder="Paste bail order text here... e.g. 'The accused shall furnish two sureties of Rs. 15,000 each, surrender passport, and report to local PS every Monday...'"
+                className="w-full h-24 bg-jg-bg border border-jg-border rounded-lg p-3 text-sm text-jg-text placeholder:text-jg-text-secondary/50 focus:outline-none focus:border-jg-blue/50 resize-none"
+              />
+              <button
+                onClick={parseBailConditions}
+                disabled={!bailOrderText.trim()}
+                className="mt-2 px-4 py-2 rounded-lg bg-jg-green/20 border border-jg-green/40 text-jg-green text-xs font-semibold hover:bg-jg-green/30 transition-all disabled:opacity-40"
+              >
+                🔍 Extract Conditions
+              </button>
+
+              {/* Rendered Checklist */}
+              {bailChecklist && bailChecklist.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-xs font-semibold text-jg-text mb-2">Visual Checklist — Share with Family</p>
+                  {bailChecklist.map((item, i) => (
+                    <div key={i} className="flex items-start gap-3 bg-jg-surface-hover/50 rounded-lg p-3 border border-jg-border/50">
+                      <span className="text-xl shrink-0">{item.icon}</span>
+                      <div className="flex-1">
+                        <p className="text-sm text-jg-text font-medium">{item.condition}</p>
+                        <p className="text-xs text-jg-text-secondary mt-0.5">{item.condition_hindi}</p>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold mt-1 inline-block ${
+                          item.category === 'FINANCIAL' ? 'bg-jg-amber/15 text-jg-amber'
+                          : item.category === 'REPORTING' ? 'bg-jg-blue/15 text-jg-blue'
+                          : item.category === 'DOCUMENT' ? 'bg-jg-purple/15 text-jg-purple'
+                          : item.category === 'TRAVEL' ? 'bg-jg-red/15 text-jg-red'
+                          : 'bg-jg-green/15 text-jg-green'
+                        }`}>{item.category}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {reasoningGraph && (
             <div className="animate-slide-up" style={{ animationDelay: '160ms' }}>
               <ReasoningGraph nodes={reasoningGraph.nodes} edges={reasoningGraph.edges} />

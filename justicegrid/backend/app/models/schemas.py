@@ -94,6 +94,15 @@ class Case(Base):
     id = Column(String, primary_key=True, default=gen_uuid)
     case_number = Column(String, unique=True, nullable=False, index=True)
     accused_name = Column(String, nullable=False)
+    father_name = Column(String, nullable=True)
+    age = Column(Integer, nullable=True)
+    gender = Column(String(10), nullable=True)  # Male, Female, Other
+    address = Column(Text, nullable=True)
+    occupation = Column(String, nullable=True)
+    education = Column(String, nullable=True)  # Illiterate, Primary, Secondary, Graduate, etc.
+    lawyer_name = Column(String, nullable=True)
+    fir_number = Column(String, nullable=True)
+    police_station = Column(String, nullable=True)
     prison_id = Column(String, ForeignKey("prisons.id"))
     district_id = Column(String, ForeignKey("districts.id"))
     court_id = Column(String, ForeignKey("courts.id"))

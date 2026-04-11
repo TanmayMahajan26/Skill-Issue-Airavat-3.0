@@ -13,21 +13,35 @@ from ..config import SURETY_MONTHS_THRESHOLD
 router = APIRouter()
 
 
+from typing import Optional
+from fastapi import APIRouter, Depends, Query
+
 @router.get("/gap-report", response_model=SuretyGapResponse)
-def surety_gap_report(db: Session = Depends(get_db)):
+def surety_gap_report(
+    paralegal_id: Optional[str] = Query(None, description="Filter by assigned paralegal"),
+    lawyer_id: Optional[str] = Query(None, description="Filter by assigned lawyer"),
+    db: Session = Depends(get_db)
+):
     """
     Identify bail granted >14 days with surety unexecuted.
     Cross-reference surety vs median income and MGNREGA rates (Pillar 7).
     """
     today = date.today()
     
-    cases = db.query(Case).filter(
+    query = db.query(Case).filter(
         Case.bail_granted == True,
         Case.surety_executed == False,
         Case.surety_amount != None,
         Case.surety_amount > 0,
         Case.status == "ACTIVE",
-    ).all()
+    )
+    
+    if paralegal_id:
+        query = query.filter(Case.assigned_paralegal_id == paralegal_id)
+    if lawyer_id:
+        query = query.filter(Case.assigned_lawyer_id == lawyer_id)
+        
+    cases = query.all()
     
     result = []
     total_ratio = 0.0

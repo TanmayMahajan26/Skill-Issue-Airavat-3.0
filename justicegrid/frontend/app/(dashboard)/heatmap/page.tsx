@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { fetchAPI } from '@/lib/api-client';
-import { mockPrisonHeatmap } from '@/lib/mock-data';
 import { Info } from 'lucide-react';
 
 const MapComponent = dynamic(() => import('@/components/prison-map'), { ssr: false, loading: () => <div className="w-full h-[600px] skeleton rounded-xl" /> });
@@ -17,8 +16,6 @@ export default function HeatmapPage() {
       const data = await fetchAPI('/api/v1/analytics/prison-heatmap');
       if (data?.prisons) {
         setPrisons(data.prisons);
-      } else {
-        setPrisons(mockPrisonHeatmap.prisons);
       }
       setLoading(false);
     }

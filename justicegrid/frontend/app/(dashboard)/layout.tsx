@@ -1,7 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
 import {
   LayoutDashboard,
   Users,
@@ -12,133 +13,206 @@ import {
   Radio,
   MessageSquare,
   Shield,
-  Settings,
   ChevronLeft,
   Bell,
+  LogOut,
+  AlertTriangle,
+  Zap,
+  ClipboardCheck,
   Activity,
+  Settings,
 } from 'lucide-react';
 
-const navItems = [
-  { href: '/', label: 'Priority Queue', icon: LayoutDashboard },
-  { href: '/cases', label: 'All Cases', icon: Users },
-  { href: '/hearings', label: 'Hearings', icon: Calendar },
-  { href: '/surety', label: 'Surety Gap', icon: Scale },
-  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { href: '/heatmap', label: 'Prison Heatmap', icon: Map },
-  { href: '/utrc', label: 'UTRC Dashboard', icon: Radio },
-  { href: '/communicate', label: 'Communication', icon: MessageSquare },
-  { href: '/admin/audit', label: 'Audit Log', icon: Shield },
-  { href: '/admin/federation', label: 'Federation', icon: Settings },
-  { href: '/admin/health', label: 'System Health', icon: Activity },
+/* ── Navigation Groups ────────────────────────────────────────────── */
+const NAV_GROUPS = [
+  {
+    title: 'CASE MANAGEMENT',
+    items: [
+      { href: '/',           label: 'Priority Queue',   icon: LayoutDashboard, roles: ['paralegal','lawyer','supervisor','utrc','admin'] },
+      { href: '/cases',      label: 'All Cases',        icon: Users,           roles: ['paralegal','lawyer','supervisor','utrc','admin'] },
+      { href: '/hearings',   label: 'Hearings',         icon: Calendar,        roles: ['paralegal','lawyer','supervisor','utrc','admin'] },
+      { href: '/surety',     label: 'Surety Gap',       icon: Scale,           roles: ['paralegal','lawyer','supervisor','admin'] },
+    ],
+  },
+  {
+    title: 'LEGAL INTELLIGENCE',
+    items: [
+      { href: '/alerts',     label: 'Active Alerts',    icon: AlertTriangle,   roles: ['paralegal','lawyer','supervisor','utrc','admin'] },
+      { href: '/petitions',  label: 'Petition Drafter',  icon: Zap,             roles: ['paralegal','lawyer','supervisor','admin'] },
+      { href: '/checklist',  label: 'Bail Checklist',    icon: ClipboardCheck,  roles: ['paralegal','lawyer','supervisor','admin'] },
+    ],
+  },
+  {
+    title: 'ANALYTICS',
+    items: [
+      { href: '/analytics',  label: 'Dashboard',        icon: BarChart3,       roles: ['supervisor','utrc','admin'] },
+      { href: '/heatmap',    label: 'Prison Heatmap',   icon: Map,             roles: ['supervisor','utrc','admin'] },
+      { href: '/utrc',       label: 'UTRC Panel',       icon: Radio,           roles: ['utrc','supervisor','admin'] },
+    ],
+  },
+  {
+    title: 'SYSTEM',
+    items: [
+      { href: '/communicate', label: 'Communication',   icon: MessageSquare,   roles: ['paralegal','lawyer','supervisor','admin'] },
+      { href: '/admin/audit', label: 'Audit Log',        icon: Shield,          roles: ['supervisor','admin'] },
+      { href: '/admin/federation', label: 'Federation',  icon: Settings,        roles: ['admin'] },
+      { href: '/admin/health', label: 'System Health',   icon: Activity,        roles: ['admin'] },
+    ],
+  },
 ];
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+const ROLE_LABELS: Record<string, string> = {
+  paralegal: 'DLSA Paralegal',
+  lawyer: 'NALSA Panel Lawyer',
+  supervisor: 'DLSA Supervisor',
+  utrc: 'UTRC Coordinator',
+  admin: 'System Admin',
+};
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { user, loading, logout } = useAuth();
+  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
 
-  const currentPage = navItems.find((i) => {
-    if (i.href === '/') return pathname === '/';
-    return pathname.startsWith(i.href);
-  });
+  useEffect(() => {
+    if (!loading && !user) router.replace('/login');
+  }, [user, loading, router]);
+
+  if (loading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-jg-bg">
+        <div className="text-center">
+          <div className="w-10 h-10 border-2 border-jg-blue/30 border-t-jg-blue rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-xs text-jg-text-secondary">Loading JusticeGrid...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const initials = user.name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2);
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
+      {/* ═══ SIDEBAR ═══ */}
       <aside
-        className={`${collapsed ? 'w-16' : 'w-64'} bg-jg-surface border-r border-jg-border
-                     flex flex-col transition-all duration-300 shrink-0`}
+        className={`${collapsed ? 'w-[68px]' : 'w-[260px]'} bg-jg-bg-alt border-r border-jg-border
+                     flex flex-col transition-all duration-300 shrink-0 relative`}
       >
-        <div className="p-4 border-b border-jg-border flex items-center justify-between">
+        {/* Logo */}
+        <div className="p-4 flex items-center justify-between h-16">
           {!collapsed && (
-            <div>
-              <h1 className="text-lg font-bold text-jg-blue flex items-center gap-2">
-                <span>⚖️</span> JusticeGrid
-              </h1>
-              <p className="text-[10px] text-jg-text-secondary tracking-wider uppercase mt-0.5">
-                Legal Intelligence Platform
-              </p>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg gradient-indigo flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                ⚖
+              </div>
+              <div>
+                <h1 className="text-sm font-bold text-jg-text">JusticeGrid</h1>
+                <p className="text-[9px] text-jg-text-tertiary tracking-wide uppercase">Legal Intelligence</p>
+              </div>
+            </div>
+          )}
+          {collapsed && (
+            <div className="w-8 h-8 rounded-lg gradient-indigo flex items-center justify-center text-white font-bold text-sm mx-auto">
+              ⚖
             </div>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="text-jg-text-secondary hover:text-jg-text p-1 rounded-md hover:bg-jg-surface-hover transition-colors"
+            className="text-jg-text-secondary hover:text-jg-text p-1 rounded-md hover:bg-jg-surface-hover transition-colors absolute right-2 top-4"
           >
-            <ChevronLeft
-              className={`w-5 h-5 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`}
-            />
+            <ChevronLeft className={`w-4 h-4 transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} />
           </button>
         </div>
 
-        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive =
-              item.href === '/'
-                ? pathname === '/'
-                : pathname.startsWith(item.href);
-            const Icon = item.icon;
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-4">
+          {NAV_GROUPS.map((group) => {
+            const items = group.items.filter((i) => i.roles.includes(user.role));
+            if (items.length === 0) return null;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={collapsed ? item.label : undefined}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all
-                  ${
-                    isActive
-                      ? 'bg-jg-blue/10 text-jg-blue border border-jg-blue/20'
-                      : 'text-jg-text-secondary hover:bg-jg-surface-hover hover:text-jg-text border border-transparent'
-                  }`}
-              >
-                <Icon className="w-[18px] h-[18px] shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
-              </Link>
+              <div key={group.title}>
+                {!collapsed && (
+                  <p className="px-3 mb-1.5 text-[10px] font-semibold text-jg-text-tertiary tracking-wider">
+                    {group.title}
+                  </p>
+                )}
+                <div className="space-y-0.5">
+                  {items.map((item) => {
+                    const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        title={collapsed ? item.label : undefined}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition-all
+                          ${isActive
+                            ? 'nav-active font-medium'
+                            : 'nav-item text-jg-text-secondary hover:text-jg-text'
+                          }
+                          ${collapsed ? 'justify-center px-2' : ''}
+                        `}
+                      >
+                        <Icon className={`w-[17px] h-[17px] shrink-0 ${isActive ? 'text-jg-blue' : ''}`} />
+                        {!collapsed && <span>{item.label}</span>}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </nav>
 
-        {/* User info */}
-        {!collapsed && (
-          <div className="p-4 border-t border-jg-border">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-jg-blue to-jg-purple flex items-center justify-center text-white text-sm font-bold shadow-lg">
-                P
-              </div>
-              <div>
-                <p className="text-sm font-medium text-jg-text">
-                  Priya Sharma
-                </p>
-                <p className="text-[11px] text-jg-text-secondary">
-                  Paralegal • DLSA Pune
-                </p>
-              </div>
+        {/* User Profile */}
+        <div className="p-3 border-t border-jg-border">
+          <div className={`flex items-center gap-2.5 ${collapsed ? 'justify-center' : ''}`}>
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-jg-blue to-jg-purple flex items-center justify-center text-white text-[11px] font-bold shrink-0">
+              {initials}
             </div>
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-[12px] font-medium text-jg-text truncate">{user.name}</p>
+                <p className="text-[10px] text-jg-text-tertiary truncate">{ROLE_LABELS[user.role]}</p>
+              </div>
+            )}
+            {!collapsed && (
+              <button
+                onClick={() => { logout(); router.replace('/login'); }}
+                title="Sign out"
+                className="text-jg-text-secondary hover:text-jg-red p-1 rounded-lg hover:bg-jg-surface-hover transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-        )}
+        </div>
       </aside>
 
-      {/* Main content */}
+      {/* ═══ MAIN CONTENT ═══ */}
       <main className="flex-1 overflow-y-auto bg-jg-bg">
         {/* Top bar */}
-        <header className="sticky top-0 z-10 bg-jg-bg/80 backdrop-blur-xl border-b border-jg-border px-6 py-3 flex items-center justify-between">
+        <header className="sticky top-0 z-20 bg-jg-bg/80 backdrop-blur-xl border-b border-jg-border px-6 h-14 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-jg-text">
-              {currentPage?.label || 'Dashboard'}
+            <h2 className="text-[15px] font-semibold text-jg-text">
+              {NAV_GROUPS.flatMap(g => g.items).find(i => i.href === '/' ? pathname === '/' : pathname.startsWith(i.href))?.label || 'Dashboard'}
             </h2>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-xs text-jg-green bg-jg-green/10 px-3 py-1.5 rounded-full border border-jg-green/20">
-              <div className="w-2 h-2 rounded-full bg-jg-green animate-pulse" />
-              Online
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 text-[11px] text-jg-green bg-jg-green/8 px-3 py-1 rounded-full border border-jg-green/15">
+              <div className="w-1.5 h-1.5 rounded-full bg-jg-green animate-pulse" />
+              {user.total_assigned || user.assigned_cases || 0} Cases Assigned
             </div>
-            <button className="relative text-jg-text-secondary hover:text-jg-text transition-colors p-1.5 rounded-lg hover:bg-jg-surface-hover">
-              <Bell className="w-5 h-5" />
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-jg-red text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                3
+            <Link
+              href="/alerts"
+              className="relative text-jg-text-secondary hover:text-jg-text transition-colors p-1.5 rounded-lg hover:bg-jg-surface-hover"
+            >
+              <Bell className="w-[18px] h-[18px]" />
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-jg-red text-white text-[8px] font-bold rounded-full flex items-center justify-center">
+                !
               </span>
-            </button>
+            </Link>
           </div>
         </header>
 

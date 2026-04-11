@@ -66,20 +66,21 @@ def chat_simulate(req: ChatSimulateRequest, db: Session = Depends(get_db)):
     WhatsApp chat simulator — Differentiator 4.
     Processes a family member's message and returns a response in their language.
     """
-    message = req.message.lower().strip()
+    import re
+    message = req.message.strip()
+    message_lower = message.lower()
     lang = req.language
-    
-    # Intent detection
+
     intent = "case_query"
     offer_helpline = False
-    
+
     # Glossary lookup triggers
     glossary_triggers = ["what does", "meaning", "kya hai", "kya hota", "matlab", "என்ன", "কি"]
     for trigger in glossary_triggers:
-        if trigger in message:
+        if trigger in message_lower:
             intent = "glossary_lookup"
             for term, translations in LEGAL_GLOSSARY.items():
-                if term in message:
+                if term in message_lower:
                     return ChatSimulateResponse(
                         response_text=translations.get(lang, translations.get("en", "Definition not available.")),
                         language=lang,
@@ -87,57 +88,114 @@ def chat_simulate(req: ChatSimulateRequest, db: Session = Depends(get_db)):
                         offer_helpline=False,
                     )
             break
-    
+
+    # Direct glossary term (single word like "remand", "bail")
+    for term, translations in LEGAL_GLOSSARY.items():
+        if message_lower.strip() == term:
+            explanation = translations.get(lang, translations.get("en", ""))
+            return ChatSimulateResponse(
+                response_text=f"📖 \"{term}\":\n\n{explanation}\n\n⚖️ This is not legal advice.",
+                language=lang,
+                intent="glossary_lookup",
+                offer_helpline=False,
+            )
+
     # Distress detection
-    distress_words = ["help", "confused", "samajh nahi", "pareshan", "don't understand"]
-    if any(w in message for w in distress_words):
+    distress_words = ["help", "confused", "samajh nahi", "pareshan", "don't understand", "madad"]
+    if any(w in message_lower for w in distress_words):
         offer_helpline = True
         intent = "distressed"
-    
-    # Case lookup
-    if req.case_number:
-        case = db.query(Case).filter(Case.case_number == req.case_number).first()
+        helpline_msgs = {
+            "hi": "🙏 हम समझते हैं कि यह मुश्किल समय है।\n\n📞 DLSA हेल्पलाइन: 1516\nहम आपको जोड़ सकते हैं।",
+            "en": "🙏 We understand this is a difficult time.\n\n📞 DLSA Helpline: 1516\nWe can connect you.",
+            "ta": "🙏 இது கடினமான நேரம் என்பதை நாங்கள் புரிந்துகொள்கிறோம்.\n\n📞 DLSA உதவி எண்: 1516",
+        }
+        return ChatSimulateResponse(
+            response_text=helpline_msgs.get(lang, helpline_msgs["en"]),
+            language=lang, intent=intent, offer_helpline=True,
+        )
+
+    # Try to extract a case number from the message (e.g. MH-2024-CR-10001)
+    case_number_match = re.search(r'[A-Z]{2}-\d{4}-CR-\d+', message.upper())
+    case_number = case_number_match.group(0) if case_number_match else req.case_number
+
+    if case_number:
+        case = db.query(Case).filter(Case.case_number == case_number).first()
         if case:
-            from datetime import date
-            detention = (date.today() - case.arrest_date).days
-            
-            status_text = {
-                "en": f"Case {case.case_number}: Your family member has been detained for {detention} days. "
-                      f"Status: {case.eligibility_status}. "
-                      f"{'Bail has been granted.' if case.bail_granted else 'Bail has not yet been granted.'}",
-                "hi": f"केस {case.case_number}: आपके परिवार के सदस्य {detention} दिनों से हिरासत में हैं। "
-                      f"स्थिति: {'पात्र' if case.eligibility_status == 'ELIGIBLE' else 'लंबित'}। "
-                      f"{'जमानत मिल गई है।' if case.bail_granted else 'जमानत अभी नहीं मिली है।'}",
-                "ta": f"வழக்கு {case.case_number}: உங்கள் குடும்ப உறுப்பினர் {detention} நாட்களாக காவலில் உள்ளார். "
-                      f"நிலை: {'தகுதியானது' if case.eligibility_status == 'ELIGIBLE' else 'நிலுவையில்'}.",
-            }
-            
-            response = status_text.get(lang, status_text["en"])
-            
-            if offer_helpline:
-                helpline = {"hi": "\n\nDLSA हेल्पलाइन से बात करना चाहते हैं?", 
-                           "en": "\n\nWould you like to speak to the DLSA helpline?"}
-                response += helpline.get(lang, helpline["en"])
-            
+            from datetime import date as dt_date
+            detention = (dt_date.today() - case.arrest_date).days
+            charges_str = ", ".join(f"S.{ch.get('section','')} {ch.get('act','IPC')}" for ch in (case.charges or []))
+
+            # Build rich response
+            next_hearing = None
+            from ..models.schemas import Hearing
+            nh = db.query(Hearing).filter(
+                Hearing.case_id == case.id,
+                Hearing.hearing_date >= dt_date.today(),
+                Hearing.outcome == None,
+            ).order_by(Hearing.hearing_date).first()
+            if nh:
+                next_hearing = str(nh.hearing_date)
+
+            status_map = {"ELIGIBLE": "पात्र (Eligible)", "NOT_ELIGIBLE": "अभी पात्र नहीं", "EXCLUDED": "बाहर (Excluded)", "REVIEW_NEEDED": "समीक्षा चल रही है", "PENDING": "लंबित"}
+
+            if lang == "hi":
+                response = (
+                    f"🙏 केस नंबर {case.case_number}:\n\n"
+                    f"👤 नाम: {case.accused_name}\n"
+                    f"👨 पिता: {case.father_name or 'N/A'}\n"
+                    f"📅 उम्र: {case.age or 'N/A'} वर्ष\n"
+                    f"📋 धारा: {charges_str}\n"
+                    f"⏰ हिरासत: {detention} दिन\n"
+                    f"🏢 थाना: {case.police_station or 'N/A'}\n\n"
+                    f"✅ स्थिति: {status_map.get(case.eligibility_status, case.eligibility_status)}\n"
+                    f"{'✅ जमानत मिल चुकी है।' if case.bail_granted else '⏳ जमानत अभी नहीं मिली है।'}\n"
+                )
+                if next_hearing:
+                    response += f"\n📅 अगली सुनवाई: {next_hearing}"
+                if case.bail_granted and not case.surety_executed and case.surety_amount:
+                    response += f"\n\n💰 जमानत राशि ₹{case.surety_amount:,.0f} जमा नहीं हुई है।"
+                response += "\n\n⚖️ यह कानूनी सलाह नहीं है।"
+            else:
+                response = (
+                    f"📋 Case {case.case_number}:\n\n"
+                    f"👤 Name: {case.accused_name}\n"
+                    f"👨 Father: {case.father_name or 'N/A'}\n"
+                    f"📅 Age: {case.age or 'N/A'} years\n"
+                    f"📋 Charges: {charges_str}\n"
+                    f"⏰ Detained: {detention} days\n"
+                    f"🏢 Police Station: {case.police_station or 'N/A'}\n\n"
+                    f"Status: {case.eligibility_status}\n"
+                    f"{'✅ Bail has been granted.' if case.bail_granted else '⏳ Bail has not yet been granted.'}\n"
+                )
+                if next_hearing:
+                    response += f"\n📅 Next Hearing: {next_hearing}"
+                if case.bail_granted and not case.surety_executed and case.surety_amount:
+                    response += f"\n\n💰 Surety of ₹{case.surety_amount:,.0f} remains unexecuted."
+                response += "\n\n⚖️ This is not legal advice."
+
             return ChatSimulateResponse(
-                response_text=response,
-                language=lang,
-                intent=intent,
-                offer_helpline=offer_helpline,
+                response_text=response, language=lang, intent="case_status", offer_helpline=False,
             )
-    
+        else:
+            not_found = {
+                "hi": f"❌ केस {case_number} नहीं मिला। कृपया केस नंबर जांचें।",
+                "en": f"❌ Case {case_number} not found. Please check the case number.",
+            }
+            return ChatSimulateResponse(
+                response_text=not_found.get(lang, not_found["en"]),
+                language=lang, intent="case_not_found", offer_helpline=False,
+            )
+
     # Default response
     defaults = {
-        "en": "Please provide a case number to check status. Example: MH-2024-CR-10001",
-        "hi": "कृपया केस नंबर बताएं। उदाहरण: MH-2024-CR-10001",
-        "ta": "வழக்கு எண்ணை வழங்கவும். உதாரணம்: MH-2024-CR-10001",
+        "en": "Please enter a case number to check status.\nExample: MH-2024-CR-10001\n\nOr ask about:\n• \"bail\" — What is bail?\n• \"remand\" — What is remand?\n• \"help\" — Connect to DLSA helpline",
+        "hi": "कृपया केस नंबर डालें।\nउदाहरण: MH-2024-CR-10001\n\nया पूछें:\n• \"bail\" — जमानत क्या है?\n• \"remand\" — रिमांड क्या है?\n• \"help\" — DLSA हेल्पलाइन",
     }
-    
+
     return ChatSimulateResponse(
         response_text=defaults.get(lang, defaults["en"]),
-        language=lang,
-        intent="unknown",
-        offer_helpline=offer_helpline,
+        language=lang, intent="unknown", offer_helpline=False,
     )
 
 

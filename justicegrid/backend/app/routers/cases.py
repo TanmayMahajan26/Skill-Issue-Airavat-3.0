@@ -71,10 +71,16 @@ def get_case_queue(
     limit: int = Query(50, le=100),
     status: Optional[str] = Query(None, description="Filter by eligibility status"),
     state: Optional[str] = Query(None, description="Filter by state"),
+    paralegal_id: Optional[str] = Query(None, description="Filter by assigned paralegal"),
+    lawyer_id: Optional[str] = Query(None, description="Filter by assigned lawyer"),
     db: Session = Depends(get_db)
 ):
     """Priority-ranked case queue for paralegal — the main dashboard view."""
     query = db.query(Case).filter(Case.status == "ACTIVE")
+    if paralegal_id:
+        query = query.filter(Case.assigned_paralegal_id == paralegal_id)
+    if lawyer_id:
+        query = query.filter(Case.assigned_lawyer_id == lawyer_id)
     if status:
         query = query.filter(Case.eligibility_status == status)
     if state:
@@ -103,6 +109,9 @@ def get_case_queue(
             case_id=str(c.id),
             case_number=c.case_number,
             accused_name=c.accused_name,
+            father_name=c.father_name,
+            age=c.age,
+            gender=c.gender,
             priority_score=c.priority_score or 0.0,
             one_line_reason=c.eligibility_reasoning or "Pending assessment",
             charges=c.charges or [],
@@ -118,6 +127,8 @@ def get_case_queue(
             detention_days=detention_days,
             next_hearing_date=str(next_hearing.hearing_date) if next_hearing else None,
             arrest_date=str(c.arrest_date),
+            fir_number=c.fir_number,
+            police_station=c.police_station,
         ))
     
     return CaseQueueResponse(cases=result, total=len(result))
@@ -140,6 +151,15 @@ def get_case_detail(case_id: str, db: Session = Depends(get_db)):
         id=str(case.id),
         case_number=case.case_number,
         accused_name=case.accused_name,
+        father_name=case.father_name,
+        age=case.age,
+        gender=case.gender,
+        address=case.address,
+        occupation=case.occupation,
+        education=case.education,
+        lawyer_name=case.lawyer_name,
+        fir_number=case.fir_number,
+        police_station=case.police_station,
         charges=case.charges or [],
         arrest_date=str(case.arrest_date),
         detention_days=(date.today() - case.arrest_date).days,
@@ -185,10 +205,16 @@ def list_cases(
     search: Optional[str] = None,
     eligibility: Optional[str] = None,
     state: Optional[str] = None,
+    paralegal_id: Optional[str] = None,
+    lawyer_id: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """List cases with search and filters."""
     query = db.query(Case).filter(Case.status == "ACTIVE")
+    if paralegal_id:
+        query = query.filter(Case.assigned_paralegal_id == paralegal_id)
+    if lawyer_id:
+        query = query.filter(Case.assigned_lawyer_id == lawyer_id)
     if search:
         query = query.filter(
             (Case.case_number.ilike(f"%{search}%")) |
