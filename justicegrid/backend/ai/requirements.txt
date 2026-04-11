@@ -1,0 +1,8 @@
+# AI module dependencies — Laptop C
+google-generativeai==0.8.0
+scikit-learn==1.4.0
+pandas==2.2.0
+numpy==1.26.3
+joblib==1.3.2
+python-dotenv==1.0.0
+gTTS==2.5.0
