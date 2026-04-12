@@ -261,101 +261,109 @@ function WhatsAppSimulator() {
 }
 
 function IVRSimulator() {
-  const [callState, setCallState] = useState<'idle' | 'ringing' | 'connected' | 'ended'>('idle');
-  const [ivrStep, setIvrStep] = useState(0);
-  const [statusText, setStatusText] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'success' | 'error'>('idle');
+  const [logs, setLogs] = useState<any[]>([]);
 
-  const ivrFlow = [
-    { text: '🎙️ नमस्ते! JusticeGrid हेल्पलाइन में आपका स्वागत है।\n\nहिंदी के लिए 1 दबाएं\nFor English, press 2\nதமிழ் க்கு, 3 அழுத்தவும்', keys: ['1', '2', '3'] },
-    { text: '📱 कृपया अपना केस नंबर डायल करें, या 0 दबाकर DLSA हेल्पलाइन से जुड़ें।', keys: ['*', '0'] },
-    { text: '📋 केस MH-2024-CR-10001:\n\nआपके परिवार के सदस्य 412 दिनों से हिरासत में हैं। वे जमानत के लिए योग्य हैं — अगली सुनवाई 14 अप्रैल को है।\n\nदोबारा सुनने के लिए 1 दबाएं\n"रिमांड" समझने के लिए 2 दबाएं\nDLSA हेल्पलाइन: 0', keys: ['1', '2', '0'] },
-  ];
-
-  function startCall() {
-    setCallState('ringing');
-    setTimeout(() => {
-      setCallState('connected');
-      setIvrStep(0);
-      setStatusText(ivrFlow[0].text);
-    }, 1500);
-  }
-
-  function pressKey(key: string) {
-    if (key === '0') {
-      setStatusText('📞 DLSA हेल्पलाइन से जोड़ रहे हैं...\nConnecting to DLSA Helpline 1516...');
-      setTimeout(() => setCallState('ended'), 2000);
-    } else if (ivrStep < ivrFlow.length - 1) {
-      const next = ivrStep + 1;
-      setIvrStep(next);
-      setStatusText(ivrFlow[next].text);
+  // Poll logs periodically
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (callStatus === 'success') {
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch('http://localhost:8001/api/v1/bolna/logs');
+          if (res.ok) {
+            const data = await res.json();
+            setLogs(data.logs || []);
+          }
+        } catch (e) {
+          console.error('Failed to fetch logs', e);
+        }
+      }, 3000);
     }
+    return () => clearInterval(interval);
+  }, [callStatus]);
+
+  async function triggerBolnaCall() {
+    if (!phoneNumber || phoneNumber.length < 10) return;
+    setLoading(true);
+    setCallStatus('calling');
+    try {
+      const res = await fetch('http://localhost:8001/api/v1/bolna/trigger_call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipient_phone_number: phoneNumber })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCallStatus('success');
+      } else {
+        setCallStatus('error');
+        alert('Call failed: ' + data.error);
+      }
+    } catch (error) {
+      setCallStatus('error');
+      alert('Network error connecting to Backend');
+    }
+    setLoading(false);
   }
 
   return (
     <div className="flex gap-6">
-      <div className="w-[300px] shrink-0 animate-slide-up">
+      <div className="w-[350px] shrink-0 animate-slide-up">
         <div className="glass-card p-6 text-center">
-          {/* Phone display */}
-          <div className="bg-jg-bg rounded-xl p-4 mb-4">
-            <Phone className={`w-12 h-12 mx-auto mb-2 ${callState === 'connected' ? 'text-jg-green' : 'text-jg-text-secondary'}`} />
-            <p className="text-sm text-jg-text font-medium">
-              {callState === 'idle' ? 'Ready to Call' : callState === 'ringing' ? 'Ringing...' : callState === 'connected' ? 'Connected' : 'Call Ended'}
+          <div className="bg-jg-bg rounded-xl p-4 mb-4 border border-jg-border">
+            <Phone className={`w-12 h-12 mx-auto mb-4 ${callStatus === 'success' ? 'text-jg-green animate-pulse' : 'text-jg-purple'}`} />
+            <h3 className="text-lg font-bold text-jg-text mb-2">Bolna AI Agent</h3>
+            <p className="text-xs text-jg-text-secondary mb-4">
+              Trigger a live conversational AI call directly to your phone.
             </p>
-            {statusText && callState === 'connected' && (
-              <div className="mt-3 text-left bg-jg-surface-hover/50 rounded-lg p-3 text-[12px] text-jg-text-secondary whitespace-pre-wrap leading-relaxed">
-                {statusText}
-              </div>
-            )}
+            
+            <input
+              type="tel"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="e.g. +919876543210"
+              className="w-full bg-[#2A3942] text-white text-sm rounded-lg px-4 py-3 outline-none placeholder:text-white/30 border border-jg-border focus:border-jg-purple focus:ring-1 focus:ring-jg-purple mb-4"
+              disabled={loading}
+            />
+            
+            <button 
+              onClick={triggerBolnaCall} 
+              disabled={loading || !phoneNumber}
+              className={`w-full py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all ${
+                callStatus === 'success' ? 'bg-jg-surface-hover text-jg-green border border-jg-green' : 
+                'bg-jg-purple hover:bg-jg-purple/80 text-white'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              {loading ? <span className="animate-pulse">Initiating...</span> :
+               callStatus === 'success' ? <><Phone className="w-4 h-4" /> Call Triggered</> :
+               <><Phone className="w-4 h-4" /> Trigger Call</>}
+            </button>
           </div>
-
-          {/* Keypad */}
-          {callState === 'connected' && (
-            <div className="grid grid-cols-3 gap-2 mb-4">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map((key) => (
-                <button
-                  key={key}
-                  onClick={() => pressKey(key)}
-                  className="w-full aspect-square rounded-full bg-jg-surface-hover hover:bg-jg-blue/20 text-jg-text font-medium text-lg transition-colors"
-                >
-                  {key}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {callState === 'idle' && (
-            <button onClick={startCall} className="w-full bg-jg-green hover:bg-jg-green/90 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors">
-              <Phone className="w-4 h-4" /> Start Call
-            </button>
-          )}
-          {callState === 'ended' && (
-            <button onClick={() => { setCallState('idle'); setStatusText(''); setIvrStep(0); }} className="w-full bg-jg-blue hover:bg-jg-blue/90 text-white py-3 rounded-lg font-medium transition-colors">
-              Call Again
-            </button>
-          )}
-          {callState === 'connected' && (
-            <button onClick={() => setCallState('ended')} className="w-full bg-jg-red hover:bg-jg-red/90 text-white py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors">
-              End Call
-            </button>
-          )}
         </div>
       </div>
 
       <div className="flex-1 space-y-4 animate-slide-up" style={{ animationDelay: '100ms' }}>
         <div className="glass-card p-5">
-          <h3 className="text-sm font-semibold text-jg-text mb-2">📞 IVR (Interactive Voice Response) Demo</h3>
-          <p className="text-xs text-jg-text-secondary leading-relaxed">
-            Demonstrates the feature-phone IVR flow for zero-literacy users. In production, this uses Twilio Voice + Bhashini TTS for real phone calls.
+          <h3 className="text-sm font-semibold text-jg-text mb-2 flex items-center gap-2"><Globe className="w-4 h-4 text-jg-blue" /> Live Webhook Logs</h3>
+          <p className="text-xs text-jg-text-secondary leading-relaxed mb-4">
+            Monitoring ngrok tunnel for incoming Bolna webhook payloads. Call status and transcripts will appear below in real-time.
           </p>
-        </div>
-        <div className="glass-card p-5">
-          <h3 className="text-sm font-semibold text-jg-text mb-3 flex items-center gap-2"><Mic className="w-4 h-4 text-jg-purple" /> IVR Flow</h3>
-          <div className="space-y-2 text-[11px] text-jg-text-secondary">
-            <p>1️⃣ Greeting → Language selection (Hindi/English/Tamil)</p>
-            <p>2️⃣ Enter case number via keypad</p>
-            <p>3️⃣ Case status read aloud in selected language</p>
-            <p>4️⃣ "What does that mean?" — re-explains in simpler terms</p>
-            <p>5️⃣ DLSA helpline connection if confused/distressed</p>
+          
+          <div className="h-[300px] overflow-y-auto bg-jg-bg border border-jg-border rounded-lg p-3 space-y-2">
+            {logs.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-jg-text-secondary text-xs">
+                {callStatus === 'success' ? 'Waiting for Bolna AI webhooks...' : 'No logs yet.'}
+              </div>
+            ) : (
+              logs.map((log, idx) => (
+                <div key={idx} className="bg-jg-surface p-3 rounded text-[11px] font-mono whitespace-pre-wrap overflow-x-auto text-jg-blue-light border-l-2 border-l-jg-purple">
+                  {JSON.stringify(log, null, 2)}
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

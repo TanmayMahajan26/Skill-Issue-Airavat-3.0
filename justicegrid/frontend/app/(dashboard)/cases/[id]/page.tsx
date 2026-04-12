@@ -93,7 +93,8 @@ export default function CaseDetailPage() {
     setGeneratingPetition(true);
     setPetitionType(type);
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/drafts/${type}/${caseId}`);
+      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}`.replace(':8000', ':8001');
+      const res = await fetch(`${url}/api/v1/drafts/${type}/${caseId}`);
       if (res.ok) {
         const text = await res.text();
         setPetitionText(text);
@@ -122,7 +123,8 @@ export default function CaseDetailPage() {
   async function parseBailConditions() {
     if (!bailOrderText.trim()) return;
     try {
-      const res = await fetch('http://localhost:8000/api/v1/bail/parse-conditions', {
+      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}`.replace(':8000', ':8001');
+      const res = await fetch(`${url}/api/v1/bail/parse-conditions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ order_text: bailOrderText }),

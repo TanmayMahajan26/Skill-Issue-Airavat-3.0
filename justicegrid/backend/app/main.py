@@ -11,6 +11,31 @@ from .routers import cases, eligibility, hearings, surety, analytics, utrc, audi
 # Create all tables on startup
 Base.metadata.create_all(bind=engine)
 
+from contextlib import asynccontextmanager
+
+# ── Startup/Shutdown Lifespan ───────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start ngrok tunnel in development for Bolna Webhooks
+    import os
+    if os.getenv("ENVIRONMENT", "development") == "development":
+        try:
+            from pyngrok import ngrok
+            # Open a ngrok tunnel to the dev server
+            public_url = ngrok.connect(8001).public_url
+            print(f"[NGROK] tunnel established: {public_url}")
+            print(f"[BOLNA] Webhook URL: {public_url}/api/v1/bolna/webhook")
+        except Exception as e:
+            print(f"[ERROR] Failed to start ngrok: {e}")
+    yield
+    # Shutdown logic
+    if os.getenv("ENVIRONMENT", "development") == "development":
+        try:
+            from pyngrok import ngrok
+            ngrok.kill()
+        except:
+            pass
+
 app = FastAPI(
     title="JusticeGrid API",
     description=(
@@ -23,6 +48,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # CORS — allow frontend from any origin during development
@@ -35,6 +61,7 @@ app.add_middleware(
 )
 
 # ── Mount Routers ────────────────────────────────────────────────────────────
+from .routers import cases, eligibility, hearings, surety, analytics, utrc, audit, comms, nlp, fl, auth, alerts, drafts, bail_conditions, bolna
 app.include_router(cases.router,        prefix="/api/v1/cases",        tags=["Cases"])
 app.include_router(eligibility.router,  prefix="/api/v1/eligibility",  tags=["Eligibility"])
 app.include_router(hearings.router,     prefix="/api/v1/hearings",     tags=["Hearings"])
@@ -49,7 +76,7 @@ app.include_router(auth.router,         prefix="/api/v1/auth",         tags=["Au
 app.include_router(alerts.router,       prefix="/api/v1/alerts",       tags=["Alerts"])
 app.include_router(drafts.router,       prefix="/api/v1/drafts",       tags=["Drafts"])
 app.include_router(bail_conditions.router, prefix="/api/v1/bail",      tags=["Bail Conditions"])
-
+app.include_router(bolna.router,        prefix="/api/v1/bolna",        tags=["Bolna"])
 
 @app.get("/", tags=["Health"])
 def root():

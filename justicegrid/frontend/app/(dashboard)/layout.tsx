@@ -21,33 +21,54 @@ import {
   ClipboardCheck,
   Activity,
   Settings,
+  Heart,
 } from 'lucide-react';
+
+import { ChatbotAssistant } from '@/components/chatbot-assistant';
 
 /* ── Navigation Groups ────────────────────────────────────────────── */
 const NAV_GROUPS = [
   {
+    title: 'FAMILY ASSISTANCE',
+    items: [
+      { href: '/',               label: 'My Case Status',   icon: Heart,       roles: ['family'] },
+      { href: '/understand-bail',label: 'Understand Bail',  icon: Scale,       roles: ['family'] },
+      { href: '/help',           label: 'Help & Support',   icon: Radio,       roles: ['family'] },
+    ],
+  },
+  {
     title: 'CASE MANAGEMENT',
     items: [
-      { href: '/',           label: 'Priority Queue',   icon: LayoutDashboard, roles: ['paralegal','lawyer','supervisor','utrc','admin'] },
-      { href: '/cases',      label: 'All Cases',        icon: Users,           roles: ['paralegal','lawyer','supervisor','utrc','admin'] },
-      { href: '/hearings',   label: 'Hearings',         icon: Calendar,        roles: ['paralegal','lawyer','supervisor','utrc','admin'] },
-      { href: '/surety',     label: 'Surety Gap',       icon: Scale,           roles: ['paralegal','lawyer','supervisor','admin'] },
+      { href: '/',           label: 'Priority Queue',   icon: LayoutDashboard, roles: ['paralegal'] },
+      { href: '/cases',      label: 'All Cases',        icon: Users,           roles: ['paralegal','lawyer'] },
+      { href: '/hearings',   label: 'Hearings',         icon: Calendar,        roles: ['paralegal','lawyer'] },
+      { href: '/surety',     label: 'Surety Gap',       icon: Scale,           roles: ['paralegal','lawyer'] },
     ],
   },
   {
     title: 'LEGAL INTELLIGENCE',
     items: [
       { href: '/alerts',     label: 'Active Alerts',    icon: AlertTriangle,   roles: ['paralegal','lawyer','supervisor','utrc','admin'] },
-      { href: '/petitions',  label: 'Petition Drafter',  icon: Zap,             roles: ['paralegal','lawyer','supervisor','admin'] },
-      { href: '/checklist',  label: 'Bail Checklist',    icon: ClipboardCheck,  roles: ['paralegal','lawyer','supervisor','admin'] },
+      { href: '/petitions',  label: 'Petition Drafter',  icon: Zap,             roles: ['paralegal','lawyer'] },
+      { href: '/checklist',  label: 'Bail Checklist',    icon: ClipboardCheck,  roles: ['paralegal','lawyer','family'] },
     ],
   },
   {
-    title: 'ANALYTICS',
+    title: 'OVERVIEW',
     items: [
-      { href: '/analytics',  label: 'Dashboard',        icon: BarChart3,       roles: ['supervisor','utrc','admin'] },
+      { href: '/',           label: 'Flagged Cases',    icon: Shield,          roles: ['lawyer'] },
+      { href: '/',           label: 'UTRC Dashboard',   icon: Radio,           roles: ['utrc'] },
+      { href: '/',           label: 'Oversight',        icon: Shield,          roles: ['supervisor'] },
+      { href: '/',           label: 'Admin Console',    icon: Settings,        roles: ['admin'] },
+    ],
+  },
+  {
+    title: 'ANALYTICS & REVIEW',
+    items: [
+      { href: '/analytics',  label: 'Analytics',        icon: BarChart3,       roles: ['supervisor','utrc','admin'] },
       { href: '/heatmap',    label: 'Prison Heatmap',   icon: Map,             roles: ['supervisor','utrc','admin'] },
-      { href: '/utrc',       label: 'UTRC Panel',       icon: Radio,           roles: ['utrc','supervisor','admin'] },
+      { href: '/utrc',       label: 'UTRC Panel',       icon: Radio,           roles: ['utrc','admin'] },
+      { href: '/hearings',   label: 'Hearing Conflicts', icon: Calendar,       roles: ['utrc'] },
     ],
   },
   {
@@ -66,6 +87,7 @@ const ROLE_LABELS: Record<string, string> = {
   lawyer: 'NALSA Panel Lawyer',
   supervisor: 'DLSA Supervisor',
   utrc: 'UTRC Coordinator',
+  family: 'Family Member',
   admin: 'System Admin',
 };
 
@@ -196,14 +218,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header className="sticky top-0 z-20 bg-jg-bg/80 backdrop-blur-xl border-b border-jg-border px-6 h-14 flex items-center justify-between">
           <div>
             <h2 className="text-[15px] font-semibold text-jg-text">
-              {NAV_GROUPS.flatMap(g => g.items).find(i => i.href === '/' ? pathname === '/' : pathname.startsWith(i.href))?.label || 'Dashboard'}
+              {NAV_GROUPS.flatMap(g => g.items).find(i => i.roles.includes(user.role) && (i.href === '/' ? pathname === '/' : pathname.startsWith(i.href)))?.label || 'Dashboard'}
             </h2>
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 text-[11px] text-jg-green bg-jg-green/8 px-3 py-1 rounded-full border border-jg-green/15">
-              <div className="w-1.5 h-1.5 rounded-full bg-jg-green animate-pulse" />
-              {user.total_assigned || user.assigned_cases || 0} Cases Assigned
-            </div>
+            {['paralegal','lawyer'].includes(user.role) && (
+              <div className="hidden sm:flex items-center gap-2 text-[11px] text-jg-green bg-jg-green/8 px-3 py-1 rounded-full border border-jg-green/15">
+                <div className="w-1.5 h-1.5 rounded-full bg-jg-green animate-pulse" />
+                {user.total_assigned || user.assigned_cases || 0} Cases Assigned
+              </div>
+            )}
+            {user.role === 'utrc' && (
+              <div className="hidden sm:flex items-center gap-2 text-[11px] text-jg-purple bg-jg-purple/8 px-3 py-1 rounded-full border border-jg-purple/15">
+                <div className="w-1.5 h-1.5 rounded-full bg-jg-purple animate-pulse" />
+                UTRC Coordinator
+              </div>
+            )}
+            {user.role === 'supervisor' && (
+              <div className="hidden sm:flex items-center gap-2 text-[11px] text-jg-amber bg-jg-amber/8 px-3 py-1 rounded-full border border-jg-amber/15">
+                <div className="w-1.5 h-1.5 rounded-full bg-jg-amber animate-pulse" />
+                DLSA Oversight
+              </div>
+            )}
+            {user.role === 'admin' && (
+              <div className="hidden sm:flex items-center gap-2 text-[11px] text-jg-blue bg-jg-blue/8 px-3 py-1 rounded-full border border-jg-blue/15">
+                <div className="w-1.5 h-1.5 rounded-full bg-jg-blue animate-pulse" />
+                System Admin
+              </div>
+            )}
             <Link
               href="/alerts"
               className="relative text-jg-text-secondary hover:text-jg-text transition-colors p-1.5 rounded-lg hover:bg-jg-surface-hover"
@@ -218,6 +260,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <div className="p-6">{children}</div>
       </main>
+      
+      {/* Inject the AI Chatbot Assistant globally here */}
+      <ChatbotAssistant />
     </div>
   );
 }

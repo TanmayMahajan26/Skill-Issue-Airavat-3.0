@@ -1,6 +1,5 @@
 'use client';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
 
 interface Prison {
   id: string;

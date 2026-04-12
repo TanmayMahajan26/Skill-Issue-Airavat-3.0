@@ -17,3 +17,6 @@ httpx==0.28.0
 python-multipart==0.0.17
 joblib==1.4.2
 alembic==1.14.0
+
+pyngrok
+httpx
