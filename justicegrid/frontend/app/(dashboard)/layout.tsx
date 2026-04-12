@@ -31,7 +31,7 @@ const NAV_GROUPS = [
   {
     title: 'FAMILY ASSISTANCE',
     items: [
-      { href: '/',               label: 'My Case Status',   icon: Heart,       roles: ['family'] },
+      { href: '/dashboard',      label: 'My Case Status',   icon: Heart,       roles: ['family'] },
       { href: '/understand-bail',label: 'Understand Bail',  icon: Scale,       roles: ['family'] },
       { href: '/help',           label: 'Help & Support',   icon: Radio,       roles: ['family'] },
     ],
@@ -39,7 +39,7 @@ const NAV_GROUPS = [
   {
     title: 'CASE MANAGEMENT',
     items: [
-      { href: '/',           label: 'Priority Queue',   icon: LayoutDashboard, roles: ['paralegal'] },
+      { href: '/dashboard',  label: 'Priority Queue',   icon: LayoutDashboard, roles: ['paralegal'] },
       { href: '/cases',      label: 'All Cases',        icon: Users,           roles: ['paralegal','lawyer'] },
       { href: '/hearings',   label: 'Hearings',         icon: Calendar,        roles: ['paralegal','lawyer'] },
       { href: '/surety',     label: 'Surety Gap',       icon: Scale,           roles: ['paralegal','lawyer'] },
@@ -56,10 +56,10 @@ const NAV_GROUPS = [
   {
     title: 'OVERVIEW',
     items: [
-      { href: '/',           label: 'Flagged Cases',    icon: Shield,          roles: ['lawyer'] },
-      { href: '/',           label: 'UTRC Dashboard',   icon: Radio,           roles: ['utrc'] },
-      { href: '/',           label: 'Oversight',        icon: Shield,          roles: ['supervisor'] },
-      { href: '/',           label: 'Admin Console',    icon: Settings,        roles: ['admin'] },
+      { href: '/dashboard',  label: 'Flagged Cases',    icon: Shield,          roles: ['lawyer'] },
+      { href: '/dashboard',  label: 'UTRC Dashboard',   icon: Radio,           roles: ['utrc'] },
+      { href: '/dashboard',  label: 'Oversight',        icon: Shield,          roles: ['supervisor'] },
+      { href: '/dashboard',  label: 'Admin Console',    icon: Settings,        roles: ['admin'] },
     ],
   },
   {
@@ -161,7 +161,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
                 <div className="space-y-0.5">
                   {items.map((item) => {
-                    const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+                    const isActive = item.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(item.href);
                     const Icon = item.icon;
                     return (
                       <Link
@@ -218,7 +218,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header className="sticky top-0 z-20 bg-jg-bg/80 backdrop-blur-xl border-b border-jg-border px-6 h-14 flex items-center justify-between">
           <div>
             <h2 className="text-[15px] font-semibold text-jg-text">
-              {NAV_GROUPS.flatMap(g => g.items).find(i => i.roles.includes(user.role) && (i.href === '/' ? pathname === '/' : pathname.startsWith(i.href)))?.label || 'Dashboard'}
+              {NAV_GROUPS.flatMap(g => g.items).find(i => i.roles.includes(user.role) && (i.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(i.href)))?.label || 'Dashboard'}
             </h2>
           </div>
           <div className="flex items-center gap-3">

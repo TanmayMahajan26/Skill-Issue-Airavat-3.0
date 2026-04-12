@@ -25,7 +25,7 @@ export default function LoginPage() {
   const [selectedRole, setSelectedRole] = useState('');
 
   useEffect(() => {
-    if (!authLoading && user) router.replace('/');
+    if (!authLoading && user) router.replace('/dashboard');
   }, [user, authLoading, router]);
 
   const handleQuickFill = (cred: typeof DEMO_CREDENTIALS[0]) => {
@@ -40,7 +40,7 @@ export default function LoginPage() {
     if (!password) { setError('Please enter your password.'); return; }
     setLogging(true); setError('');
     const ok = await login(email);
-    if (ok) router.replace('/'); else setError('Invalid credentials. Please try again.');
+    if (ok) router.replace('/dashboard'); else setError('Invalid credentials. Please try again.');
     setLogging(false);
   };
 
