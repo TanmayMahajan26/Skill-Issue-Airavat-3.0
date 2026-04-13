@@ -20,6 +20,15 @@ from ..services.priority_scorer import compute_one_line_reason, compute_next_act
 from ..services.eligibility_engine import run_eligibility_and_save
 import uuid
 
+import json
+import redis
+from ..config import REDIS_URL
+
+try:
+    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+except Exception:
+    redis_client = None
+
 router = APIRouter()
 
 
@@ -79,6 +88,16 @@ def get_case_queue(
     db: Session = Depends(get_db)
 ):
     """Priority-ranked case queue for paralegal — the main dashboard view."""
+    cache_key = f"case_queue:{limit}:{status}:{state}:{paralegal_id}:{lawyer_id}"
+    
+    if redis_client:
+        try:
+            cached_data = redis_client.get(cache_key)
+            if cached_data:
+                return json.loads(cached_data)
+        except Exception as e:
+            print(f"Redis cache read error: {e}")
+            
     query = db.query(Case).filter(Case.status == "ACTIVE")
     if paralegal_id:
         query = query.filter(Case.assigned_paralegal_id == paralegal_id)
@@ -134,7 +153,16 @@ def get_case_queue(
             police_station=c.police_station,
         ))
     
-    return CaseQueueResponse(cases=result, total=len(result))
+    response_data = CaseQueueResponse(cases=result, total=len(result)).model_dump(mode="json")
+    
+    if redis_client:
+        try:
+            # Cache the response for 60 seconds (Hackathon optimized)
+            redis_client.setex(cache_key, 60, json.dumps(response_data))
+        except Exception as e:
+            print(f"Redis cache write error: {e}")
+            
+    return response_data
 
 
 @router.post("/", response_model=CaseDetailResponse)
