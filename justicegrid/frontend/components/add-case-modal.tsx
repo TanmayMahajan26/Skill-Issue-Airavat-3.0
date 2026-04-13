@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Plus, Trash2, CheckCircle2, UploadCloud, Bot } from 'lucide-react';
-import { fetchAPI } from '@/lib/api-client';
+import { fetchAPI, API_URL } from '@/lib/api-client';
 
 export function AddCaseModal({ isOpen, onClose, onSuccess, lawyerId, paralegalId }: {
   isOpen: boolean;
@@ -36,19 +36,21 @@ export function AddCaseModal({ isOpen, onClose, onSuccess, lawyerId, paralegalId
       const formData = new FormData();
       formData.append('file', file);
       
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/cases/extract_fir`, {
+      const res = await fetch(`${API_URL.replace(/\/$/, '')}/api/v1/cases/extract_fir`, {
         method: 'POST',
         body: formData,
       });
       
       const data = await res.json();
-      if (data.charges) {
+      if (data.charges && data.charges.length > 0) {
         setCharges(data.charges.map((c: any) => ({
           section: c.section,
           act: c.act,
           max_years: c.max_years || 0,
           life_or_death: c.life_or_death || false
         })));
+      } else {
+        alert("The NLP engine could not extract any charges. This may be due to heavy OCR corruption or a Gemini API Quota Exceeded error.");
       }
     } catch (err) {
       console.error("Extraction error:", err);
