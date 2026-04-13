@@ -13,12 +13,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 try:
-    import google.generativeai as genai
-    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-    gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+    from groq import Groq
+    groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 except Exception:
-    gemini_model = None
-    print("WARNING: Gemini API not configured. Using regex-only extraction.")
+    groq_client = None
+    print("WARNING: Groq API not configured. Using regex-only extraction.")
 
 @dataclass
 class ChargeSection:
@@ -161,8 +160,8 @@ def extract_with_regex(text: str) -> List[ChargeSection]:
 
 
 def extract_with_gemini(text: str, language: str) -> List[ChargeSection]:
-    """Use Gemini to extract charges from narrative prose."""
-    if not gemini_model:
+    """Use Groq (Llama-3) to extract charges from narrative prose."""
+    if not groq_client:
         return []
 
     prompt = f"""You are a legal expert. Extract ALL IPC (Indian Penal Code) and BNS
@@ -181,9 +180,13 @@ FIR Text:
 {text[:3000]}"""
 
     try:
-        response = gemini_model.generate_content(prompt)
+        response = groq_client.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model="llama3-70b-8192",
+            temperature=0,
+        )
         # Parse JSON from response
-        text_response = response.text.strip()
+        text_response = response.choices[0].message.content.strip()
         # Remove markdown code blocks if present
         if text_response.startswith("```"):
             text_response = text_response.split("```")[1]
@@ -210,7 +213,7 @@ FIR Text:
             ))
         return result
     except Exception as e:
-        print(f"Gemini extraction error: {e}")
+        print(f"Groq extraction error: {e}")
         return []
 
 
