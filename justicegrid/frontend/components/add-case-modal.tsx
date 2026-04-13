@@ -119,21 +119,23 @@ export function AddCaseModal({ isOpen, onClose, onSuccess, lawyerId, paralegalId
           </button>
         </div>
 
-        {/* AI Upload Section */}
-        <div className="mx-6 mt-6 p-4 rounded-xl border border-jg-purple/30 bg-jg-purple/5 flex gap-4 items-center">
-          <div className="p-3 rounded-full bg-jg-purple/20 text-jg-purple">
+        {/* AI Upload Section - COMING SOON UI */}
+        <div className="mx-6 mt-6 p-4 rounded-xl border border-jg-border/50 bg-jg-bg-card flex gap-4 items-center opacity-70">
+          <div className="p-3 rounded-full bg-jg-purple/10 text-jg-purple/50">
             <Bot className="w-6 h-6" />
           </div>
           <div className="flex-1">
-            <h3 className="text-sm font-bold text-jg-purple">Gemini Auto-Fill</h3>
-            <p className="text-xs text-jg-text-secondary mt-1">Upload the raw FIR PDF to automatically extract IPC/BNSS charges using our NLP engine.</p>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-jg-purple/70">LLM NLP Auto-Fill</h3>
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-jg-purple/20 text-jg-purple border border-jg-purple/30">COMING SOON</span>
+            </div>
+            <p className="text-xs text-jg-text-secondary mt-1">Upload raw FIR PDFs to automatically extract IPC/BNSS charges via our offline Llama-3 parsing architecture.</p>
           </div>
           <div>
-             <label className="cursor-pointer bg-jg-purple hover:bg-opacity-90 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg transition-all flex items-center gap-2">
-               {extracting ? <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" /> : <UploadCloud className="w-4 h-4" />}
-               {extracting ? "Extracting..." : "Upload FIR"}
-               <input type="file" accept=".pdf,.txt" className="hidden" onChange={handleFileUpload} disabled={extracting} />
-             </label>
+             <button disabled className="cursor-not-allowed bg-jg-border/40 text-jg-text-secondary px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
+               <UploadCloud className="w-4 h-4" />
+               Upload FIR
+             </button>
           </div>
         </div>
 
