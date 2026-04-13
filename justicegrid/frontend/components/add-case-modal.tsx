@@ -41,7 +41,7 @@ export function AddCaseModal({ isOpen, onClose, onSuccess, lawyerId, paralegalId
     };
 
     try {
-      const res = await fetchAPI('/api/v1/cases/', {
+      const res = await fetchAPI('/api/v1/cases', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
