@@ -1,8 +1,8 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export async function fetchAPI(endpoint: string, options?: RequestInit) {
   // Always ensure we point to the backend properly
-  const url = `${API_URL.replace(/\/$/, '').replace(':8000', ':8001')}${endpoint}`;
+  const url = `${API_URL.replace(/\/$/, '')}${endpoint}`;
   try {
     const res = await fetch(url, {
       ...options,

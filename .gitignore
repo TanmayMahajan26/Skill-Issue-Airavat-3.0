@@ -1,43 +1,26 @@
-<<<<<<< HEAD
-__pycache__/
-*.pyc
-*.pyo
-.env
-node_modules/
-.next/
-*.pkl
-.DS_Store
-venv/
-.venv/
-*.egg-info/
-dist/
-build/
-.vercel/
-.idea/
-.vscode/
-*.db
-*.sqlite3
-.gemini/
-=======
 # Dependencies
 node_modules/
 __pycache__/
 *.pyc
+*.pyo
 .venv/
 venv/
 env/
+*.egg-info/
 
 # Build
 .next/
 out/
 dist/
 build/
+.vercel/
 
 # Environment
 .env
 .env.local
 .env.production
 *.db
+*.sqlite3
 
 # IDE
 .vscode/
@@ -50,4 +33,5 @@ Thumbs.db
 # Temp
 temp_backend/
 *.log
->>>>>>> a614b2b (feat: JusticeGrid full-stack integration — Frontend + Backend with 5000 seeded cases)
+*.pkl
+.gemini/

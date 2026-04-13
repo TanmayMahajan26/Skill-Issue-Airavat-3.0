@@ -28,7 +28,7 @@ export default function ChecklistPage() {
     if (!orderText.trim()) return;
     setParsing(true);
     try {
-      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}`.replace(':8000', ':8001');
+      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}`;
       const res = await fetch(`${url}/api/v1/bail/parse-conditions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

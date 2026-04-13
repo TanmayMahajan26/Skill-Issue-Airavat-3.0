@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
         try:
             from pyngrok import ngrok
             # Open a ngrok tunnel to the dev server
-            public_url = ngrok.connect(8001).public_url
+            public_url = ngrok.connect(8000).public_url
             print(f"[NGROK] tunnel established: {public_url}")
             print(f"[BOLNA] Webhook URL: {public_url}/api/v1/bolna/webhook")
         except Exception as e:

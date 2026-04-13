@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string): Promise<boolean> => {
     try {
-      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}`.replace(':8000', ':8001');
+      const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}`;
       const res = await fetch(
         `${url}/api/v1/auth/login`,
         {

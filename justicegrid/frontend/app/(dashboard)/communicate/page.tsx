@@ -272,7 +272,7 @@ function IVRSimulator() {
     if (callStatus === 'success') {
       interval = setInterval(async () => {
         try {
-          const res = await fetch('http://localhost:8001/api/v1/bolna/logs');
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/bolna/logs`);
           if (res.ok) {
             const data = await res.json();
             setLogs(data.logs || []);
@@ -290,7 +290,7 @@ function IVRSimulator() {
     setLoading(true);
     setCallStatus('calling');
     try {
-      const res = await fetch('http://localhost:8001/api/v1/bolna/trigger_call', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/bolna/trigger_call`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ recipient_phone_number: phoneNumber })
