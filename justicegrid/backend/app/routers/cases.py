@@ -15,7 +15,10 @@ from ..models.responses import (
     CountdownDisplay, CourtInfo, PrisonInfo, DistrictInfo, HearingInfo,
     CaseActionRequest, CaseActionResponse,
 )
-from ..services.priority_scorer import compute_one_line_reason, compute_next_action
+from ..models.requests import CaseCreateRequest
+from ..services.priority_scorer import compute_one_line_reason, compute_next_action, run_priority_and_save
+from ..services.eligibility_engine import run_eligibility_and_save
+import uuid
 
 router = APIRouter()
 
@@ -133,6 +136,73 @@ def get_case_queue(
     
     return CaseQueueResponse(cases=result, total=len(result))
 
+
+@router.post("/", response_model=CaseDetailResponse)
+def create_case(case_in: CaseCreateRequest, db: Session = Depends(get_db)):
+    """
+    SaaS feature: Manually add a case to the platform.
+    Automatically runs ML eligibility and priority scoring.
+    """
+    # Parse date safely
+    from datetime import datetime
+    try:
+        arr_date = datetime.strptime(case_in.arrest_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="arrest_date must be YYYY-MM-DD")
+
+    case_number = case_in.fir_number or f"SaaS-{uuid.uuid4().hex[:6].upper()}"
+
+    # Set dummy court/prison if none provided so UI stats don't crash
+    # Just grabbing the first available if not provided.
+    court_id = case_in.court_id
+    if not court_id:
+        first_court = db.query(Court).first()
+        court_id = first_court.id if first_court else None
+        
+    prison_id = case_in.prison_id
+    if not prison_id:
+        first_prison = db.query(Prison).first()
+        prison_id = first_prison.id if first_prison else None
+
+    # Determine default district from court or prison
+    district_id = case_in.district_id
+    if not district_id and first_court:
+        district_id = first_court.district_id
+
+    db_case = Case(
+        case_number=case_number,
+        accused_name=case_in.accused_name,
+        father_name=case_in.father_name,
+        age=case_in.age,
+        gender=case_in.gender,
+        occupation=case_in.occupation,
+        education=case_in.education,
+        address=case_in.address,
+        fir_number=case_in.fir_number,
+        police_station=case_in.police_station,
+        arrest_date=arr_date,
+        is_first_offender=case_in.is_first_offender,
+        charges=case_in.charges,
+        court_id=court_id,
+        prison_id=prison_id,
+        district_id=district_id,
+        assigned_lawyer_id=case_in.assigned_lawyer_id,
+        assigned_paralegal_id=case_in.assigned_paralegal_id,
+        status="ACTIVE",
+        eligibility_status="PENDING",
+        priority_score=0.0
+    )
+    
+    db.add(db_case)
+    db.commit()
+    db.refresh(db_case)
+
+    # Trigger ML Pipeline
+    run_eligibility_and_save(db_case, db)
+    run_priority_and_save(db_case, db)
+
+    # Return full detail response
+    return get_case_detail(db_case.id, db)
 
 @router.get("/{case_id}", response_model=CaseDetailResponse)
 def get_case_detail(case_id: str, db: Session = Depends(get_db)):

@@ -6,8 +6,9 @@ import { useAuth } from '@/lib/auth-context';
 import Link from 'next/link';
 import {
   ChevronRight, Search, AlertTriangle, Users, CheckCircle, Clock,
-  Calendar, TrendingUp, Zap, Shield, Scale, Radio, Map, BarChart3
+  Calendar, TrendingUp, Zap, Shield, Scale, Radio, Map, BarChart3, Plus
 } from 'lucide-react';
+import { AddCaseModal } from '@/components/add-case-modal';
 
 function getPriorityBadge(score: number) {
   if (score >= 90) return { label: 'CRITICAL', class: 'badge-critical' };
@@ -88,6 +89,8 @@ function QueueDashboard() {
   const [alertBreakdown, setAlertBreakdown] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -105,7 +108,7 @@ function QueueDashboard() {
       setLoading(false);
     }
     if (user) loadData();
-  }, [user]);
+  }, [user, refreshKey]);
 
   const filteredCases = cases.filter(
     (c) => c.case_number.toLowerCase().includes(search.toLowerCase()) ||
@@ -132,6 +135,13 @@ function QueueDashboard() {
 
   return (
     <div>
+      <AddCaseModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSuccess={() => setRefreshKey(k => k + 1)}
+        paralegalId={user?.role === 'paralegal' ? user.id : undefined}
+        lawyerId={user?.role === 'lawyer' ? user.id : undefined}
+      />
       {/* ═══ HERO STAT CARDS ═══ */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         {[
@@ -164,6 +174,10 @@ function QueueDashboard() {
           <Zap className="w-3.5 h-3.5" />
           Draft Petition
         </Link>
+        <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-jg-green/10 border border-jg-green/30 text-jg-green text-xs font-bold hover:bg-jg-green/20 transition-all shadow-[0_0_15px_rgba(74,222,128,0.15)]">
+          <Plus className="w-4 h-4" />
+          Add Case
+        </button>
         <div className="flex-1" />
         <div className="relative w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-jg-text-tertiary" />

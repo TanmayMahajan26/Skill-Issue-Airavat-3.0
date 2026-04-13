@@ -174,7 +174,7 @@ def generate():
         print(f"  Created {len(demo_users)} demo users")
 
         # ─── 5. Cases (5000) ────────────────────────────────────────
-        print("[5/7] Creating 5000 cases (this may take a moment)...")
+        print("[5/7] Creating 200 cases (this may take a moment)...")
         today = date.today()
         all_states = list(STATES.keys())
 
@@ -205,10 +205,10 @@ def generate():
             "Legal Aid Panel", "Legal Aid Panel", "Legal Aid Panel",  # Legal aid more common
         ]
 
-        paralegal_case_indices = set(random.sample(range(5000), 200))
-        lawyer_case_indices = set(random.sample(range(5000), 55))
+        paralegal_case_indices = set(random.sample(range(200), 100))
+        lawyer_case_indices = set(random.sample(range(200), 55))
 
-        for i in range(5000):
+        for i in range(200):
             state = random.choice(all_states)
             dist_name = random.choice(STATES[state]["districts"])
 
