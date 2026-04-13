@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://skill-issue-airavat-3-0.onrender.com";
 
 export async function fetchAPI(endpoint: string, options?: RequestInit) {
   // Always ensure we point to the backend properly
