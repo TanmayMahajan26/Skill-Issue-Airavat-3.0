@@ -211,7 +211,7 @@ async def extract_fir_endpoint(file: UploadFile = File(...)):
     Passes text to the Gemini Flash NLP charge extractor module.
     """
     import io
-    from ..ai.nlp.charge_extractor import extract_charges
+    from ai.nlp.charge_extractor import extract_charges
     
     if file.filename.endswith(".pdf"):
         import PyPDF2
