@@ -14,8 +14,6 @@ RUN pip install --no-cache-dir -r ai_requirements.txt
 COPY app/ ./app/
 COPY ai/ ./ai/
 COPY seed/ ./seed/
-COPY test_endpoints.py ./
-
 # Environment
 ENV PORT=8000
 ENV PYTHONPATH=/app
