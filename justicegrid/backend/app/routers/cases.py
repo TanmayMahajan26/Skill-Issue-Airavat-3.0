@@ -2,7 +2,7 @@
 Cases API — priority queue, case detail, case actions.
 The most-used endpoints by Laptop B's frontend.
 """
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, File, UploadFile
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from datetime import date
@@ -203,6 +203,28 @@ def create_case(case_in: CaseCreateRequest, db: Session = Depends(get_db)):
 
     # Return full detail response
     return get_case_detail(db_case.id, db)
+
+@router.post("/extract_fir")
+async def extract_fir_endpoint(file: UploadFile = File(...)):
+    """
+    SaaS feature: Upload FIR as PDF or TXT.
+    Passes text to the Gemini Flash NLP charge extractor module.
+    """
+    import io
+    from ..ai.nlp.charge_extractor import extract_charges
+    
+    if file.filename.endswith(".pdf"):
+        import PyPDF2
+        content = await file.read()
+        pdf_reader = PyPDF2.PdfReader(io.BytesIO(content))
+        text = " ".join([page.extract_text() for page in pdf_reader.pages if page.extract_text()])
+    else:
+        text = (await file.read()).decode("utf-8", errors="ignore")
+        
+    charges = extract_charges(text, language="en")
+    
+    # Send the raw text snippet back for display/debugging constraints
+    return {"extracted_text": text[:1000], "charges": charges}
 
 @router.get("/{case_id}", response_model=CaseDetailResponse)
 def get_case_detail(case_id: str, db: Session = Depends(get_db)):

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { X, Plus, Trash2, CheckCircle2, UploadCloud, Bot } from 'lucide-react';
 import { fetchAPI } from '@/lib/api-client';
 
 export function AddCaseModal({ isOpen, onClose, onSuccess, lawyerId, paralegalId }: {
@@ -25,6 +25,37 @@ export function AddCaseModal({ isOpen, onClose, onSuccess, lawyerId, paralegalId
   });
 
   const [charges, setCharges] = useState<{ section: string; act: string; max_years: number; life_or_death: boolean }[]>([]);
+  const [extracting, setExtracting] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setExtracting(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/v1/cases/extract_fir`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      const data = await res.json();
+      if (data.charges) {
+        setCharges(data.charges.map((c: any) => ({
+          section: c.section,
+          act: c.act,
+          max_years: c.max_years || 0,
+          life_or_death: c.life_or_death || false
+        })));
+      }
+    } catch (err) {
+      console.error("Extraction error:", err);
+    } finally {
+      setExtracting(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -84,6 +115,24 @@ export function AddCaseModal({ isOpen, onClose, onSuccess, lawyerId, paralegalId
           <button onClick={onClose} className="p-2 hover:bg-jg-border/50 rounded-lg text-jg-text-secondary transition-colors">
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* AI Upload Section */}
+        <div className="mx-6 mt-6 p-4 rounded-xl border border-jg-purple/30 bg-jg-purple/5 flex gap-4 items-center">
+          <div className="p-3 rounded-full bg-jg-purple/20 text-jg-purple">
+            <Bot className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-bold text-jg-purple">Gemini Auto-Fill</h3>
+            <p className="text-xs text-jg-text-secondary mt-1">Upload the raw FIR PDF to automatically extract IPC/BNSS charges using our NLP engine.</p>
+          </div>
+          <div>
+             <label className="cursor-pointer bg-jg-purple hover:bg-opacity-90 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg transition-all flex items-center gap-2">
+               {extracting ? <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+               {extracting ? "Extracting..." : "Upload FIR"}
+               <input type="file" accept=".pdf,.txt" className="hidden" onChange={handleFileUpload} disabled={extracting} />
+             </label>
+          </div>
         </div>
 
         {/* Body */}
